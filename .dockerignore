@@ -25,8 +25,9 @@ htmlcov/
 .github/
 
 # Documentation
-*.md
 docs/
+CONTRIBUTING.md
+CHANGELOG.md
 
 # Python packaging
 *.egg-info/

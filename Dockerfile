@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency files and source code
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 COPY opn_boss/ ./opn_boss/
 
 # Install dependencies to a temporary location
@@ -37,7 +37,7 @@ RUN groupadd -r opnboss && useradd -r -g opnboss -u 1000 opnboss
 WORKDIR /app
 
 # Copy source and config example
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 COPY opn_boss/ ./opn_boss/
 COPY config/config.yaml.example ./config/config.yaml.example
 
