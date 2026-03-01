@@ -5,18 +5,18 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     CRITICAL = "critical"
     WARNING = "warning"
     INFO = "info"
     OK = "ok"
 
 
-class Category(str, Enum):
+class Category(StrEnum):
     SECURITY = "security"
     MULTIWAN = "multiwan"
     HA_RECOVERY = "ha_recovery"

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from opn_boss.analyzers.base import BaseAnalyzer
 from opn_boss.core.types import Category, CollectorResult, Finding, Severity
 
@@ -29,7 +31,7 @@ class MultiWANAnalyzer(BaseAnalyzer):
 
         return findings
 
-    def _find_gateways(self, gateways: dict, keywords: list[str]) -> list[dict]:
+    def _find_gateways(self, gateways: dict[str, Any], keywords: list[str]) -> list[dict[str, Any]]:
         items = gateways.get("gateways", [])
         result = []
         for gw in items:
@@ -38,13 +40,13 @@ class MultiWANAnalyzer(BaseAnalyzer):
                 result.append(gw)
         return result
 
-    def _is_gateway_down(self, gw: dict) -> bool:
+    def _is_gateway_down(self, gw: dict[str, Any]) -> bool:
         """Check if a gateway is down, using both status and status_translated fields."""
         status = gw.get("status", "").lower()
         translated = gw.get("status_translated", "").lower()
         return status in ("down", "loss", "highdelay") or "offline" in translated
 
-    def _mw001_primary_wan_down(self, firewall_id: str, gateways: dict) -> list[Finding]:
+    def _mw001_primary_wan_down(self, firewall_id: str, gateways: dict[str, Any]) -> list[Finding]:
         if not gateways:
             return []
         items = gateways.get("gateways", [])
@@ -78,7 +80,7 @@ class MultiWANAnalyzer(BaseAnalyzer):
         return []
 
     def _mw002_lte_failover_offline(
-        self, firewall_id: str, gateways: dict
+        self, firewall_id: str, gateways: dict[str, Any]
     ) -> list[Finding]:
         lte_gws = self._find_gateways(gateways, ["lte", "4g", "5g", "cellular", "mobile", "zte"])
         if not lte_gws:
@@ -114,7 +116,7 @@ class MultiWANAnalyzer(BaseAnalyzer):
             )]
         return []
 
-    def _mw003_he_ipv6_down(self, firewall_id: str, gateways: dict) -> list[Finding]:
+    def _mw003_he_ipv6_down(self, firewall_id: str, gateways: dict[str, Any]) -> list[Finding]:
         he_gws = self._find_gateways(gateways, ["he.", "hurricane", "6in4", "ipv6"])
         if not he_gws:
             return []
@@ -138,7 +140,7 @@ class MultiWANAnalyzer(BaseAnalyzer):
             )]
         return []
 
-    def _mw004_no_gateway_group(self, firewall_id: str, gateways: dict) -> list[Finding]:
+    def _mw004_no_gateway_group(self, firewall_id: str, gateways: dict[str, Any]) -> list[Finding]:
         """Check that at least one gateway group (for failover/load-balance) exists."""
         # Gateway groups are not in the status API but we can infer from having 2+ gateways.
         # Count all gateways (IPv4 + IPv6 + tunnels all count).
@@ -162,7 +164,7 @@ class MultiWANAnalyzer(BaseAnalyzer):
         return []
 
     def _mw005_lte_never_tested(
-        self, firewall_id: str, gateways: dict
+        self, firewall_id: str, gateways: dict[str, Any]
     ) -> list[Finding]:
         lte_gws = self._find_gateways(gateways, ["lte", "4g", "5g", "cellular", "zte"])
         for gw in lte_gws:
@@ -187,7 +189,7 @@ class MultiWANAnalyzer(BaseAnalyzer):
                 )]
         return []
 
-    def _mw006_he_latency(self, firewall_id: str, gateways: dict) -> list[Finding]:
+    def _mw006_he_latency(self, firewall_id: str, gateways: dict[str, Any]) -> list[Finding]:
         he_gws = self._find_gateways(gateways, ["he.", "hurricane", "6in4"])
         for gw in he_gws:
             try:
@@ -213,7 +215,7 @@ class MultiWANAnalyzer(BaseAnalyzer):
                 )]
         return []
 
-    def _mw007_packet_loss(self, firewall_id: str, gateways: dict) -> list[Finding]:
+    def _mw007_packet_loss(self, firewall_id: str, gateways: dict[str, Any]) -> list[Finding]:
         items = gateways.get("gateways", [])
         high_loss = []
         for gw in items:
@@ -246,7 +248,7 @@ class MultiWANAnalyzer(BaseAnalyzer):
         return []
 
     def _mw008_asymmetric_routing(
-        self, firewall_id: str, interfaces: dict, gateways: dict
+        self, firewall_id: str, interfaces: dict[str, Any], gateways: dict[str, Any]
     ) -> list[Finding]:
         """Detect potential asymmetric routing (informational)."""
         items = gateways.get("gateways", [])

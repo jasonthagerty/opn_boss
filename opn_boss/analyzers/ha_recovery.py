@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from opn_boss.analyzers.base import BaseAnalyzer
 from opn_boss.core.types import Category, CollectorResult, Finding, Severity
 
@@ -55,7 +57,7 @@ only one default IPv6 gateway is advertised.
 
         return findings
 
-    def _ha002_carp_fault(self, firewall_id: str, carp: dict) -> list[Finding]:
+    def _ha002_carp_fault(self, firewall_id: str, carp: dict[str, Any]) -> list[Finding]:
         if not carp:
             return []
         status = carp.get("carp_status", "").upper()
@@ -100,7 +102,7 @@ only one default IPv6 gateway is advertised.
             )]
         return []
 
-    def _ha003_split_brain(self, firewall_id: str, carp: dict) -> list[Finding]:
+    def _ha003_split_brain(self, firewall_id: str, carp: dict[str, Any]) -> list[Finding]:
         """Detect if this firewall is MASTER while we also know another is MASTER."""
         # This check is most meaningful when comparing two firewalls.
         # Here we flag if CARP reports MASTER without a backup being known.
@@ -128,7 +130,7 @@ only one default IPv6 gateway is advertised.
         return []
 
     def _ha004_ra_conflict(
-        self, firewall_id: str, carp: dict, interfaces: dict
+        self, firewall_id: str, carp: dict[str, Any], interfaces: dict[str, Any]
     ) -> list[Finding]:
         """Detect IPv6 RA conflict — the key finding for firewall2 recovery."""
         # If CARP plugin is not installed, skip this check entirely —
@@ -157,7 +159,7 @@ only one default IPv6 gateway is advertised.
         has_ra_evidence = bool(ra_senders)
 
         if carp_troubled or has_ra_evidence:
-            evidence: dict = {
+            evidence: dict[str, Any] = {
                 "carp_status": carp_status,
                 "ra_sending_interfaces": ra_senders,
             }
@@ -188,7 +190,7 @@ only one default IPv6 gateway is advertised.
             )]
         return []
 
-    def _ha005_advskew_mismatch(self, firewall_id: str, carp: dict) -> list[Finding]:
+    def _ha005_advskew_mismatch(self, firewall_id: str, carp: dict[str, Any]) -> list[Finding]:
         """Check CARP advertising skew values."""
         if not carp:
             return []
@@ -237,7 +239,7 @@ only one default IPv6 gateway is advertised.
             )]
         return []
 
-    def _ha006_config_sync(self, firewall_id: str, system: dict) -> list[Finding]:
+    def _ha006_config_sync(self, firewall_id: str, system: dict[str, Any]) -> list[Finding]:
         """Check for config sync status (informational)."""
         if not system:
             return []
@@ -262,7 +264,7 @@ only one default IPv6 gateway is advertised.
             )]
         return []
 
-    def _ha007_pfsync_disabled(self, firewall_id: str, carp: dict) -> list[Finding]:
+    def _ha007_pfsync_disabled(self, firewall_id: str, carp: dict[str, Any]) -> list[Finding]:
         """Check if pfsync (state sync) appears disabled."""
         if not carp:
             return []
@@ -287,7 +289,7 @@ only one default IPv6 gateway is advertised.
             )]
         return []
 
-    def _ha008_last_seen(self, firewall_id: str, system: dict) -> list[Finding]:
+    def _ha008_last_seen(self, firewall_id: str, system: dict[str, Any]) -> list[Finding]:
         """Check uptime — a very short uptime suggests a recent unexpected reboot."""
         if not system:
             return []
@@ -322,7 +324,7 @@ only one default IPv6 gateway is advertised.
             )]
         return []
 
-    def _ha009_vip_count(self, firewall_id: str, carp: dict) -> list[Finding]:
+    def _ha009_vip_count(self, firewall_id: str, carp: dict[str, Any]) -> list[Finding]:
         """Flag if VIP count is zero — HA is not configured."""
         # If CARP is simply not installed, don't flag this
         if not carp or not carp.get("carp_available", True):

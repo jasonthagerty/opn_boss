@@ -73,13 +73,13 @@ async def firewall_detail(
         )
         snaps = result.scalars().all()
 
-        findings = []
+        findings: list[FindingDB] = []
         if snaps:
             latest_snap = snaps[0]
             result2 = await session.execute(
                 select(FindingDB).where(FindingDB.snapshot_id == latest_snap.id)
             )
-            findings = result2.scalars().all()
+            findings = list(result2.scalars().all())
 
     states = await service.get_firewall_states()
     fw_state = next((s for s in states if s["firewall_id"] == firewall_id), None)

@@ -13,7 +13,7 @@ from opn_boss.core.logging_config import get_logger
 logger = get_logger(__name__)
 
 
-def create_scheduler(service: OPNBossService, config: AppConfig) -> AsyncIOScheduler:  # type: ignore[name-defined]  # noqa: F821
+def create_scheduler(service: OPNBossService, config: AppConfig) -> AsyncIOScheduler:  # noqa: F821
     """Create and configure an APScheduler instance.
 
     Args:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from opn_boss.analyzers.base import BaseAnalyzer
 from opn_boss.core.types import Category, CollectorResult, Finding, Severity
 
@@ -34,7 +36,7 @@ class SecurityAnalyzer(BaseAnalyzer):
         return findings
 
     def _sec001_firmware_outdated(
-        self, firewall_id: str, fw: dict
+        self, firewall_id: str, fw: dict[str, Any]
     ) -> list[Finding]:
         if not fw:
             return []
@@ -68,7 +70,7 @@ class SecurityAnalyzer(BaseAnalyzer):
             ),
         )]
 
-    def _sec002_ids_down(self, firewall_id: str, ids: dict) -> list[Finding]:
+    def _sec002_ids_down(self, firewall_id: str, ids: dict[str, Any]) -> list[Finding]:
         if not ids:
             return [Finding(
                 check_id="SEC-002",
@@ -106,7 +108,7 @@ class SecurityAnalyzer(BaseAnalyzer):
         )]
 
     def _sec003_admin_on_wan(
-        self, firewall_id: str, interfaces: dict, rules: dict
+        self, firewall_id: str, interfaces: dict[str, Any], rules: dict[str, Any]
     ) -> list[Finding]:
         """Check if WebGUI (port 443/80) is accessible from WAN."""
         rules_list = rules.get("rules", [])
@@ -136,7 +138,7 @@ class SecurityAnalyzer(BaseAnalyzer):
             )]
         return []
 
-    def _sec004_any_any_rules(self, firewall_id: str, rules: dict) -> list[Finding]:
+    def _sec004_any_any_rules(self, firewall_id: str, rules: dict[str, Any]) -> list[Finding]:
         """Detect pass rules with source=any, destination=any, port=any."""
         rules_list = rules.get("rules", [])
         any_any = [
@@ -170,7 +172,7 @@ class SecurityAnalyzer(BaseAnalyzer):
             )]
         return []
 
-    def _sec005_anti_lockout(self, firewall_id: str, rules: dict) -> list[Finding]:
+    def _sec005_anti_lockout(self, firewall_id: str, rules: dict[str, Any]) -> list[Finding]:
         """Verify anti-lockout rule is present."""
         rules_list = rules.get("rules", [])
         lockout = [
@@ -198,7 +200,7 @@ class SecurityAnalyzer(BaseAnalyzer):
             ),
         )]
 
-    def _sec006_ssh_on_wan(self, firewall_id: str, rules: dict) -> list[Finding]:
+    def _sec006_ssh_on_wan(self, firewall_id: str, rules: dict[str, Any]) -> list[Finding]:
         """Check for SSH (22) pass rules on WAN interface."""
         rules_list = rules.get("rules", [])
         ssh_wan = [
@@ -228,7 +230,7 @@ class SecurityAnalyzer(BaseAnalyzer):
         return []
 
     def _sec007_dns_recursion_on_wan(
-        self, firewall_id: str, rules: dict
+        self, firewall_id: str, rules: dict[str, Any]
     ) -> list[Finding]:
         """Check for DNS (53) pass rules on WAN — open resolver risk."""
         rules_list = rules.get("rules", [])
@@ -259,7 +261,7 @@ class SecurityAnalyzer(BaseAnalyzer):
         return []
 
     def _sec008_ids_no_wan(
-        self, firewall_id: str, ids: dict, interfaces: dict
+        self, firewall_id: str, ids: dict[str, Any], interfaces: dict[str, Any]
     ) -> list[Finding]:
         """Warn if IDS is running but WAN interface may not be monitored."""
         if not ids.get("running"):
@@ -282,7 +284,7 @@ class SecurityAnalyzer(BaseAnalyzer):
             ),
         )]
 
-    def _sec009_no_default_deny(self, firewall_id: str, rules: dict) -> list[Finding]:
+    def _sec009_no_default_deny(self, firewall_id: str, rules: dict[str, Any]) -> list[Finding]:
         """Check for a default-deny (block all) rule."""
         rules_list = rules.get("rules", [])
         deny_all = [
@@ -309,7 +311,7 @@ class SecurityAnalyzer(BaseAnalyzer):
             ),
         )]
 
-    def _sec010_many_disabled(self, firewall_id: str, rules: dict) -> list[Finding]:
+    def _sec010_many_disabled(self, firewall_id: str, rules: dict[str, Any]) -> list[Finding]:
         """Flag if there are many disabled rules that may indicate cruft."""
         disabled = rules.get("disabled_count", 0)
         total = rules.get("total", 0)

@@ -19,7 +19,12 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -138,7 +143,7 @@ _engine = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
-def get_engine(db_url: str):  # type: ignore[return]
+def get_engine(db_url: str) -> AsyncEngine:
     """Create and return the async engine."""
     global _engine
     if _engine is None:

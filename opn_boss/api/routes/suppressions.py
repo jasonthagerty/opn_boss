@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pathlib
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -84,7 +85,7 @@ async def create_suppression(
 @router.get("/api/suppressions")
 async def list_suppressions(
     service: OPNBossService = Depends(get_service),
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """List all suppressions."""
     factory = get_session_factory(service._config.database.url)
     async with factory() as session:

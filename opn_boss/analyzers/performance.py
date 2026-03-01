@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from opn_boss.analyzers.base import BaseAnalyzer
 from opn_boss.core.types import Category, CollectorResult, Finding, Severity
 
@@ -43,7 +45,7 @@ class PerformanceAnalyzer(BaseAnalyzer):
 
         return findings
 
-    def _perf001_cpu(self, firewall_id: str, system: dict) -> list[Finding]:
+    def _perf001_cpu(self, firewall_id: str, system: dict[str, Any]) -> list[Finding]:
         if not system:
             return []
         try:
@@ -70,7 +72,7 @@ class PerformanceAnalyzer(BaseAnalyzer):
             )]
         return []
 
-    def _perf002_memory(self, firewall_id: str, system: dict) -> list[Finding]:
+    def _perf002_memory(self, firewall_id: str, system: dict[str, Any]) -> list[Finding]:
         if not system:
             return []
         total = system.get("memory_total", 0)
@@ -125,7 +127,7 @@ class PerformanceAnalyzer(BaseAnalyzer):
             )]
         return []
 
-    def _perf003_wan_util(self, firewall_id: str, interfaces: dict) -> list[Finding]:
+    def _perf003_wan_util(self, firewall_id: str, interfaces: dict[str, Any]) -> list[Finding]:
         """Check for high WAN interface utilization."""
         ifaces = interfaces.get("interfaces", {})
         warnings = []
@@ -159,7 +161,7 @@ class PerformanceAnalyzer(BaseAnalyzer):
             )]
         return []
 
-    def _perf004_state_table(self, firewall_id: str, system: dict) -> list[Finding]:
+    def _perf004_state_table(self, firewall_id: str, system: dict[str, Any]) -> list[Finding]:
         """Check state table fill percentage."""
         if not system:
             return []
@@ -194,7 +196,7 @@ class PerformanceAnalyzer(BaseAnalyzer):
             )]
         return []
 
-    def _perf005_iface_errors(self, firewall_id: str, interfaces: dict) -> list[Finding]:
+    def _perf005_iface_errors(self, firewall_id: str, interfaces: dict[str, Any]) -> list[Finding]:
         """Flag interfaces with input/output errors."""
         ifaces = interfaces.get("interfaces", {})
         error_ifaces = []
@@ -232,7 +234,7 @@ class PerformanceAnalyzer(BaseAnalyzer):
             )]
         return []
 
-    def _perf006_dns_spike(self, firewall_id: str, dns: dict) -> list[Finding]:
+    def _perf006_dns_spike(self, firewall_id: str, dns: dict[str, Any]) -> list[Finding]:
         """Detect DNS query spikes — unwanted queries may indicate DNS abuse."""
         if not dns:
             return []
@@ -263,7 +265,7 @@ class PerformanceAnalyzer(BaseAnalyzer):
             )]
         return []
 
-    def _perf007_dhcp_pool(self, firewall_id: str, dhcp: dict) -> list[Finding]:
+    def _perf007_dhcp_pool(self, firewall_id: str, dhcp: dict[str, Any]) -> list[Finding]:
         """Warn if DHCP lease pool is near exhaustion."""
         if not dhcp:
             return []
@@ -294,7 +296,7 @@ class PerformanceAnalyzer(BaseAnalyzer):
             )]
         return []
 
-    def _perf008_disk(self, firewall_id: str, system: dict) -> list[Finding]:
+    def _perf008_disk(self, firewall_id: str, system: dict[str, Any]) -> list[Finding]:
         if not system:
             return []
         disk_pct = system.get("disk_percent", 0)
@@ -322,7 +324,7 @@ class PerformanceAnalyzer(BaseAnalyzer):
             )]
         return []
 
-    def _perf009_short_uptime(self, firewall_id: str, system: dict) -> list[Finding]:
+    def _perf009_short_uptime(self, firewall_id: str, system: dict[str, Any]) -> list[Finding]:
         """Flag a recent reboot (uptime < 1 hour)."""
         if not system:
             return []
@@ -351,7 +353,7 @@ class PerformanceAnalyzer(BaseAnalyzer):
             )]
         return []
 
-    def _perf010_iface_drops(self, firewall_id: str, interfaces: dict) -> list[Finding]:
+    def _perf010_iface_drops(self, firewall_id: str, interfaces: dict[str, Any]) -> list[Finding]:
         """Flag interfaces with input drops (buffer/queue drops)."""
         ifaces = interfaces.get("interfaces", {})
         drop_ifaces = []
