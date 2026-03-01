@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+import pathlib
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from opn_boss.api.dependencies import get_service
 from opn_boss.service.main import OPNBossService
-
-import pathlib
 
 TEMPLATES_DIR = pathlib.Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -59,6 +59,7 @@ async def firewall_detail(
 ) -> HTMLResponse:
     """Detail page for a single firewall."""
     from sqlalchemy import desc, select
+
     from opn_boss.core.database import FindingDB, SnapshotDB, get_session_factory
 
     factory = get_session_factory(service._config.database.url)
@@ -91,7 +92,8 @@ async def firewall_detail(
             "fw_state": fw_state,
             "snapshots": snaps,
             "findings": findings,
-            "page_title": f"OPNBoss — {firewall_id}",
+            "has_llm": service._config.llm.enabled,
+            "page_title": f"OPNBoss \u2014 {firewall_id}",
         },
     )
 
@@ -105,7 +107,8 @@ async def findings_partial(
     service: OPNBossService = Depends(get_service),
 ) -> HTMLResponse:
     """HTMX partial: findings table — one entry per (firewall, check_id) from each firewall's latest snapshot."""
-    from sqlalchemy import case, desc, func, select
+    from sqlalchemy import case, func, select
+
     from opn_boss.core.database import FindingDB, SnapshotDB, SuppressionDB, get_session_factory
 
     factory = get_session_factory(service._config.database.url)

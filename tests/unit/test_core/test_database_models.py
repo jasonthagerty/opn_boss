@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
-
 from opn_boss.core.database import FindingDB, SuppressionDB
 
 

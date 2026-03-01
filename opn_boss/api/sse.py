@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 from opn_boss.core.logging_config import get_logger
 
@@ -48,7 +49,7 @@ class SSEManager:
                 try:
                     msg = await asyncio.wait_for(q.get(), timeout=30.0)
                     yield msg
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Send keep-alive comment
                     yield ": keep-alive\n\n"
         except asyncio.CancelledError:

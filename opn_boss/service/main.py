@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from collections.abc import Callable, Coroutine
 from datetime import datetime
-from typing import Any, Callable, Coroutine
-
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Any
 
 from opn_boss.analyzers.ha_recovery import HaRecoveryAnalyzer
 from opn_boss.analyzers.multiwan import MultiWANAnalyzer
@@ -16,11 +15,13 @@ from opn_boss.analyzers.security import SecurityAnalyzer
 from opn_boss.collectors.carp import CARPCollector
 from opn_boss.collectors.dhcp import DHCPCollector
 from opn_boss.collectors.dns import DNSCollector
+from opn_boss.collectors.firewall_logs import FirewallLogsCollector
 from opn_boss.collectors.firewall_rules import FirewallRulesCollector
 from opn_boss.collectors.firmware import FirmwareCollector
 from opn_boss.collectors.gateways import GatewaysCollector
 from opn_boss.collectors.ids import IDSCollector
 from opn_boss.collectors.interfaces import InterfacesCollector
+from opn_boss.collectors.nat_rules import NatRulesCollector
 from opn_boss.collectors.routes import RoutesCollector
 from opn_boss.collectors.system import SystemCollector
 from opn_boss.core.config import AppConfig, FirewallConfig
@@ -62,6 +63,7 @@ class OPNBossService:
         ]
         self._broadcast: BroadcastFn | None = None
         self._scan_lock = asyncio.Lock()
+        self._policy_service: Any = None  # set by create_app if LLM enabled
 
     def set_broadcast(self, fn: BroadcastFn) -> None:
         """Register SSE broadcast callback."""
@@ -162,9 +164,11 @@ class OPNBossService:
                 DNSCollector,
                 DHCPCollector,
                 RoutesCollector,
+                NatRulesCollector,
+                FirewallLogsCollector,
             ]
-            tasks = [cls(client).collect() for cls in collector_classes]
-            results: list[CollectorResult] = await asyncio.gather(*tasks)  # type: ignore[assignment]
+            tasks = [cls(client).collect() for cls in collector_classes]  # type: ignore[abstract]
+            results: list[CollectorResult] = await asyncio.gather(*tasks)
 
         # Save collector runs to DB
         async with self._session_factory() as session:
@@ -347,7 +351,7 @@ class OPNBossService:
 
     async def get_latest_snapshots(self) -> list[dict[str, Any]]:
         """Get the most recent snapshot per firewall."""
-        from sqlalchemy import select, text
+        from sqlalchemy import text
 
         async with self._session_factory() as session:
             # Get latest snapshot per firewall

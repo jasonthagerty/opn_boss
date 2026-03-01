@@ -82,12 +82,21 @@ class LoggingConfig(BaseModel):
         return upper
 
 
+class LLMConfig(BaseModel):
+    enabled: bool = True
+    provider: str = "ollama"
+    base_url: str = "http://localhost:11434"
+    model: str = "phi3:mini"
+    timeout_seconds: float = 120.0
+
+
 class AppConfig(BaseModel):
     firewalls: list[FirewallConfig] = Field(default_factory=list)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     api: APIConfig = Field(default_factory=APIConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    llm: LLMConfig = Field(default_factory=LLMConfig)
 
     @field_validator("firewalls")
     @classmethod

@@ -31,3 +31,9 @@ database:
 logging:
   level: "INFO"
   format: "json"  # json or text
+
+llm:
+  enabled: true
+  model: "phi3:mini"   # or llama3.2:3b, mistral:7b, qwen2.5:3b
+  base_url: "http://localhost:11434"
+  timeout_seconds: 120.0

@@ -33,7 +33,7 @@ class OPNSenseClient:
         self._config = config
         self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self) -> "OPNSenseClient":
+    async def __aenter__(self) -> OPNSenseClient:
         self._client = httpx.AsyncClient(
             base_url=self._config.base_url,
             auth=(self._config.api_key, self._config.api_secret),

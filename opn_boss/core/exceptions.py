@@ -40,3 +40,7 @@ class CollectorError(OPNBossError):
     def __init__(self, message: str, collector_name: str = "") -> None:
         super().__init__(message)
         self.collector_name = collector_name
+
+
+class LLMUnavailableError(OPNBossError):
+    """Local LLM (Ollama) is not reachable or the model is not available."""

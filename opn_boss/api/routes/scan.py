@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
 
 from opn_boss.api.dependencies import get_service
 from opn_boss.api.models import ScanResponse

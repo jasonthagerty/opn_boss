@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import sys
-from pathlib import Path
-from typing import Optional
 
 import typer
+from rich import box
 from rich.console import Console
 from rich.table import Table
-from rich import box
 
 app = typer.Typer(
     name="opnboss",
@@ -20,8 +18,9 @@ app = typer.Typer(
 console = Console()
 
 
-def _load_config(config_path: str) -> "AppConfig":  # type: ignore[name-defined]  # noqa: F821
+def _load_config(config_path: str) -> AppConfig:  # type: ignore[name-defined]  # noqa: F821
     from dotenv import load_dotenv
+
     from opn_boss.core.config import load_config
 
     load_dotenv()
@@ -31,11 +30,12 @@ def _load_config(config_path: str) -> "AppConfig":  # type: ignore[name-defined]
 @app.command()
 def serve(
     config: str = typer.Option("config/config.yaml", "--config", "-c", help="Path to config YAML"),
-    host: Optional[str] = typer.Option(None, "--host", help="Override API host"),
-    port: Optional[int] = typer.Option(None, "--port", "-p", help="Override API port"),
+    host: str | None = typer.Option(None, "--host", help="Override API host"),
+    port: int | None = typer.Option(None, "--port", "-p", help="Override API port"),
 ) -> None:
     """Start the OPNBoss web server and background scheduler."""
     import uvicorn
+
     from opn_boss.api.app import create_app
     from opn_boss.core.logging_config import configure_logging
 
@@ -62,12 +62,12 @@ def serve(
 @app.command()
 def scan(
     config: str = typer.Option("config/config.yaml", "--config", "-c", help="Path to config YAML"),
-    firewall: Optional[str] = typer.Option(None, "--firewall", "-f", help="Scan only this firewall ID"),
+    firewall: str | None = typer.Option(None, "--firewall", "-f", help="Scan only this firewall ID"),
     json_output: bool = typer.Option(False, "--json", help="Output findings as JSON"),
 ) -> None:
     """Run an immediate scan and print findings to the terminal."""
-    from opn_boss.core.logging_config import configure_logging
     from opn_boss.core.database import create_tables
+    from opn_boss.core.logging_config import configure_logging
     from opn_boss.service.main import OPNBossService
 
     cfg = _load_config(config)
@@ -104,7 +104,7 @@ def scan(
     asyncio.run(_run())
 
 
-def _print_summary(summary: "SnapshotSummary") -> None:  # type: ignore[name-defined]  # noqa: F821
+def _print_summary(summary: SnapshotSummary) -> None:  # type: ignore[name-defined]  # noqa: F821
     from opn_boss.core.types import Severity
 
     status_color = {
@@ -170,8 +170,8 @@ def status(
     config: str = typer.Option("config/config.yaml", "--config", "-c", help="Path to config YAML"),
 ) -> None:
     """Show current firewall reachability status."""
-    from opn_boss.core.logging_config import configure_logging
     from opn_boss.core.database import create_tables
+    from opn_boss.core.logging_config import configure_logging
     from opn_boss.service.main import OPNBossService
 
     cfg = _load_config(config)

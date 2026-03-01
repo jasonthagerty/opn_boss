@@ -1,0 +1,21 @@
+<div class="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+  <div class="mb-2">
+    <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Query</span>
+    <p class="text-gray-800 font-medium mt-0.5">{{ query.scenario }}</p>
+  </div>
+  <div class="mb-3">
+    <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Answer</span>
+    <div class="text-gray-700 text-sm mt-0.5 whitespace-pre-wrap bg-gray-50 rounded p-3 leading-relaxed">{{ query.response }}</div>
+  </div>
+  {% if query.log_evidence %}
+  <div class="mt-2 border-t border-gray-100 pt-2">
+    <span class="text-xs font-semibold text-amber-600 uppercase tracking-wide">Log Evidence ({{ query.log_evidence | length }} entries matched)</span>
+    <div class="mt-1 text-xs font-mono text-gray-600 bg-amber-50 rounded p-2 max-h-32 overflow-y-auto">
+      {% for entry in query.log_evidence[:10] %}
+      <div>[{{ entry.get('action', '?') }}] {{ entry.get('src', '?') }} → {{ entry.get('dst', '?') }}{% if entry.get('dstport') %}:{{ entry.get('dstport') }}{% endif %} ({{ entry.get('proto', '') }})</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  <div class="mt-2 text-xs text-gray-400">{{ query.created_at.strftime('%Y-%m-%d %H:%M UTC') }} · {{ query.model }}</div>
+</div>

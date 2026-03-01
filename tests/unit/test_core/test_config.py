@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import os
 import textwrap
 from pathlib import Path
 
 import pytest
 
-from opn_boss.core.config import AppConfig, FirewallConfig, load_config
+from opn_boss.core.config import FirewallConfig, load_config
 from opn_boss.core.exceptions import ConfigError
 
 

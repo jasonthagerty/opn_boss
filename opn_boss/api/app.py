@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -33,6 +33,12 @@ def create_app(config: AppConfig) -> FastAPI:
         app.state.service = service
         app.state.sse_manager = sse_manager
         app.state.config = config
+
+        # Initialize policy analysis service if LLM is enabled
+        if config.llm.enabled:
+            from opn_boss.llm.service import PolicyAnalysisService
+            policy_svc = PolicyAnalysisService(config.llm, config.database.url)
+            service._policy_service = policy_svc
 
         # Start scheduler
         scheduler = create_scheduler(service, config)
@@ -64,7 +70,7 @@ def create_app(config: AppConfig) -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     # Register routers
-    from opn_boss.api.routes import dashboard, firewalls, scan, snapshots, suppressions
+    from opn_boss.api.routes import dashboard, firewalls, policy, scan, snapshots, suppressions
     from opn_boss.api.routes import sse as sse_routes
 
     app.include_router(dashboard.router)
@@ -73,5 +79,6 @@ def create_app(config: AppConfig) -> FastAPI:
     app.include_router(scan.router)
     app.include_router(sse_routes.router)
     app.include_router(suppressions.router)
+    app.include_router(policy.router)
 
     return app

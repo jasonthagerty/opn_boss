@@ -18,9 +18,9 @@ async def list_snapshots(
     service: OPNBossService = Depends(get_service),
 ) -> list[SnapshotResponse]:
     """List recent scan snapshots, optionally filtered by firewall."""
-    from sqlalchemy import select, desc
+    from sqlalchemy import desc, select
+
     from opn_boss.core.database import SnapshotDB, get_session_factory
-    from opn_boss.core.config import AppConfig
 
     factory = get_session_factory(service._config.database.url)
     async with factory() as session:
@@ -55,6 +55,7 @@ async def get_snapshot_findings(
 ) -> SnapshotWithFindings:
     """Get a snapshot with all its findings."""
     from sqlalchemy import select
+
     from opn_boss.core.database import FindingDB, SnapshotDB, get_session_factory
 
     factory = get_session_factory(service._config.database.url)
