@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ page_title | default("OPNBoss") }}</title>
+
+  <!-- Tailwind CSS CDN (no build step) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- HTMX (served locally) -->
+  <script src="/static/js/htmx.min.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    [x-cloak] { display: none !important; }
+    .severity-critical { @apply text-red-700 bg-red-100; }
+    .severity-warning { @apply text-yellow-700 bg-yellow-100; }
+    .severity-info { @apply text-blue-700 bg-blue-100; }
+    .severity-ok { @apply text-green-700 bg-green-100; }
+  </style>
+
+  <script>
+    // SSE: connect and update page on events
+    document.addEventListener('DOMContentLoaded', function() {
+      const evtSource = new EventSource('/api/events');
+
+      evtSource.addEventListener('scan_completed', function(e) {
+        const badge = document.getElementById('scan-status');
+        if (badge) { badge.textContent = 'Scan complete'; badge.className = 'px-2 py-1 text-xs rounded-full bg-green-100 text-green-800'; }
+        // Reload firewall cards partial
+        htmx.trigger('#firewall-cards', 'refresh');
+      });
+
+      evtSource.addEventListener('scan_started', function(e) {
+        const badge = document.getElementById('scan-status');
+        if (badge) { badge.textContent = 'Scanning…'; badge.className = 'px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 animate-pulse'; }
+      });
+
+      evtSource.addEventListener('firewall_offline', function(e) {
+        const data = JSON.parse(e.data);
+        console.warn('Firewall offline:', data.firewall_id);
+      });
+    });
+  </script>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+
+  <!-- Navigation -->
+  <nav class="bg-gray-900 text-white px-6 py-3 flex items-center justify-between shadow-lg">
+    <div class="flex items-center gap-3">
+      <span class="text-xl font-bold tracking-tight text-orange-400">OPNBoss</span>
+      <span class="text-gray-400 text-sm">OPNSense Analyzer</span>
+    </div>
+    <div class="flex items-center gap-4">
+      <span id="scan-status" class="px-2 py-1 text-xs rounded-full bg-gray-700 text-gray-300">Ready</span>
+      <button
+        hx-post="/api/scan"
+        hx-swap="none"
+        class="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-md transition-colors"
+        onclick="document.getElementById('scan-status').textContent='Triggered…'"
+      >
+        Scan Now
+      </button>
+      <a href="/" class="text-gray-300 hover:text-white text-sm">Dashboard</a>
+    </div>
+  </nav>
+
+  <!-- Page content -->
+  <main class="max-w-7xl mx-auto px-4 py-6">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="text-center text-xs text-gray-400 py-4 mt-8 border-t border-gray-200">
+    OPNBoss v0.1.0 &mdash; OPNSense Analyzer &amp; Recommendation Service
+  </footer>
+
+</body>
+</html>

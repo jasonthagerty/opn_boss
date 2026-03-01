@@ -1,0 +1,33 @@
+firewalls:
+  - firewall_id: "firewall1"
+    host: "192.168.1.1"
+    api_key: "${FW1_API_KEY}"
+    api_secret: "${FW1_API_SECRET}"
+    verify_ssl: false
+    role: "primary"
+    enabled: true
+    timeout_seconds: 10
+
+  - firewall_id: "firewall2"
+    host: "192.168.1.2"
+    api_key: "${FW2_API_KEY}"
+    api_secret: "${FW2_API_SECRET}"
+    verify_ssl: false
+    role: "backup"
+    enabled: true   # kept enabled; offline state handled gracefully
+    timeout_seconds: 5
+
+scheduler:
+  poll_interval_minutes: 5
+  retention_days: 30
+
+api:
+  host: "0.0.0.0"
+  port: 8080
+
+database:
+  url: "sqlite+aiosqlite:///data/opn_boss.db"
+
+logging:
+  level: "INFO"
+  format: "json"  # json or text

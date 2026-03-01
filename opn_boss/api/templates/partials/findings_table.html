@@ -1,0 +1,105 @@
+{% if findings %}
+<div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
+      <tr>
+        <th class="px-4 py-2 text-left">Severity</th>
+        <th class="px-4 py-2 text-left">Firewall</th>
+        <th class="px-4 py-2 text-left">Check</th>
+        <th class="px-4 py-2 text-left">Title</th>
+        <th class="px-4 py-2 text-left">Category</th>
+        <th class="px-4 py-2 text-left">Details</th>
+        <th class="px-4 py-2 text-left">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for f in findings %}
+      {% if f.suppressed %}
+      <tr class="bg-gray-50 opacity-60">
+        <td class="px-4 py-3">
+          <span class="px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-400">
+            {{ f.severity | upper }}
+          </span>
+        </td>
+        <td class="px-4 py-3">
+          <a href="/firewall/{{ f.firewall_id }}" class="text-gray-400 text-xs">{{ f.firewall_id }}</a>
+        </td>
+        <td class="px-4 py-3 font-mono text-xs text-gray-400">{{ f.check_id }}</td>
+        <td class="px-4 py-3 text-gray-400">
+          <div class="font-medium">{{ f.title }}</div>
+          <div class="text-xs mt-0.5">
+            <span class="px-1.5 py-0.5 rounded bg-gray-200 text-gray-400 text-xs">Suppressed</span>
+          </div>
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-400">
+          <span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-400">{{ f.category }}</span>
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-400"></td>
+        <td class="px-4 py-3 text-xs">
+          {% set supp_id = suppression_map.get(f.firewall_id + ':' + f.check_id) %}
+          {% if supp_id %}
+          <button hx-delete="/api/suppressions/{{ supp_id }}"
+                  hx-target="closest tr"
+                  hx-swap="outerHTML"
+                  class="px-2 py-0.5 text-xs rounded bg-gray-200 text-gray-500 hover:bg-red-100 hover:text-red-700">
+            Unsuppress
+          </button>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr class="hover:bg-gray-50 {% if f.severity == 'critical' %}bg-red-50{% endif %}">
+        <td class="px-4 py-3">
+          {% set sev_classes = {
+            'critical': 'bg-red-100 text-red-700',
+            'warning': 'bg-yellow-100 text-yellow-700',
+            'info': 'bg-blue-100 text-blue-700',
+            'ok': 'bg-green-100 text-green-700',
+          } %}
+          <span class="px-2 py-0.5 rounded text-xs font-medium {{ sev_classes.get(f.severity, 'bg-gray-100 text-gray-700') }}">
+            {{ f.severity | upper }}
+          </span>
+        </td>
+        <td class="px-4 py-3">
+          <a href="/firewall/{{ f.firewall_id }}" class="text-orange-600 hover:text-orange-800 font-medium text-xs">
+            {{ f.firewall_id }}
+          </a>
+        </td>
+        <td class="px-4 py-3 font-mono text-xs text-gray-600">{{ f.check_id }}</td>
+        <td class="px-4 py-3">
+          <div class="font-medium text-gray-800">{{ f.title }}</div>
+          <div class="text-xs text-gray-500 mt-0.5">{{ f.description | truncate(100) }}</div>
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-500">
+          <span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{{ f.category }}</span>
+        </td>
+        <td class="px-4 py-3 text-xs">
+          {% if f.remediation %}
+          <details>
+            <summary class="cursor-pointer text-orange-600 hover:text-orange-800">Remediation</summary>
+            <pre class="mt-1 whitespace-pre-wrap text-xs bg-gray-50 p-2 rounded border border-gray-200 max-w-sm">{{ f.remediation }}</pre>
+          </details>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-xs">
+          {% if f.severity != 'ok' %}
+          <button hx-post="/api/suppressions"
+                  hx-vals='{"firewall_id": "{{ f.firewall_id }}", "check_id": "{{ f.check_id }}"}'
+                  hx-target="closest tr"
+                  hx-swap="outerHTML"
+                  class="px-2 py-0.5 text-xs rounded bg-orange-100 text-orange-700 hover:bg-orange-200">
+            Suppress
+          </button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="p-8 text-center text-gray-400">
+  No findings match the current filter. Run a scan to populate results.
+</div>
+{% endif %}

@@ -1,0 +1,50 @@
+{% if f %}
+<tr class="bg-gray-50 opacity-60">
+  <td class="px-4 py-3">
+    {% set sev_classes = {
+      'critical': 'bg-gray-200 text-gray-400',
+      'warning': 'bg-gray-200 text-gray-400',
+      'info': 'bg-gray-200 text-gray-400',
+      'ok': 'bg-gray-200 text-gray-400',
+    } %}
+    <span class="px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-400">
+      {{ f.severity | upper }}
+    </span>
+  </td>
+  <td class="px-4 py-3 text-xs text-gray-400">
+    <a href="/firewall/{{ f.firewall_id }}" class="text-gray-400 text-xs">{{ f.firewall_id }}</a>
+  </td>
+  <td class="px-4 py-3 font-mono text-xs text-gray-400">{{ f.check_id }}</td>
+  <td class="px-4 py-3 text-gray-400">
+    <div class="font-medium">{{ f.title }}</div>
+    <div class="text-xs mt-0.5">
+      <span class="px-1.5 py-0.5 rounded bg-gray-200 text-gray-400 text-xs">Suppressed</span>
+    </div>
+  </td>
+  <td class="px-4 py-3 text-xs text-gray-400">
+    <span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-400">{{ f.category }}</span>
+  </td>
+  <td class="px-4 py-3 text-xs text-gray-400"></td>
+  <td class="px-4 py-3 text-xs">
+    <button hx-delete="/api/suppressions/{{ suppression_id }}"
+            hx-target="closest tr"
+            hx-swap="outerHTML"
+            class="px-2 py-0.5 text-xs rounded bg-gray-200 text-gray-500 hover:bg-red-100 hover:text-red-700">
+      Unsuppress
+    </button>
+  </td>
+</tr>
+{% else %}
+<tr class="bg-gray-50 opacity-60">
+  <td colspan="7" class="px-4 py-3 text-xs text-gray-400">
+    <span class="font-mono">{{ firewall_id }} / {{ check_id }}</span>
+    <span class="ml-2 px-1.5 py-0.5 rounded bg-gray-200 text-gray-400 text-xs">Suppressed</span>
+    <button hx-delete="/api/suppressions/{{ suppression_id }}"
+            hx-target="closest tr"
+            hx-swap="outerHTML"
+            class="ml-2 px-2 py-0.5 text-xs rounded bg-gray-200 text-gray-500 hover:bg-red-100 hover:text-red-700">
+      Unsuppress
+    </button>
+  </td>
+</tr>
+{% endif %}
