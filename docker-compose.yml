@@ -1,0 +1,46 @@
+services:
+  opn_boss:
+    image: ghcr.io/jasonthagerty/opn-boss:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: opn_boss
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config/config.yaml:/app/config/config.yaml:ro
+      - opn_boss_data:/app/data
+    environment:
+      # Firewall credentials — set in .env or export before running
+      - FW1_API_KEY=${FW1_API_KEY}
+      - FW1_API_SECRET=${FW1_API_SECRET}
+      - FW2_API_KEY=${FW2_API_KEY:-}
+      - FW2_API_SECRET=${FW2_API_SECRET:-}
+    healthcheck:
+      test: ["CMD", "python3", "/usr/local/bin/healthcheck.py"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+
+  # Optional: local Ollama for LLM policy analysis
+  # Uncomment and set llm.base_url: "http://ollama:11434" in config.yaml
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ollama
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   # GPU support (uncomment for NVIDIA):
+  #   # deploy:
+  #   #   resources:
+  #   #     reservations:
+  #   #       devices:
+  #   #         - driver: nvidia
+  #   #           count: all
+  #   #           capabilities: [gpu]
+
+volumes:
+  opn_boss_data:
+  # ollama_data:

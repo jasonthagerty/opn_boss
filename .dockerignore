@@ -1,0 +1,41 @@
+# Version control
+.git
+.gitignore
+
+# Config (never bake credentials into image)
+config/config.yaml
+
+# Runtime data
+data/
+
+# Development / test artifacts
+tests/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.coverage
+coverage.xml
+htmlcov/
+
+# CI/CD
+.github/
+
+# Documentation
+*.md
+docs/
+
+# Python packaging
+*.egg-info/
+dist/
+build/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store

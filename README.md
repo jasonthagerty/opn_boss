@@ -1,6 +1,6 @@
 # OPNBoss
 
-OPNSense Analyzer & Recommendation Service. Scans OPNSense firewalls via their REST API, stores results in SQLite, and serves a real-time web dashboard with actionable findings and remediation guidance.
+OPNSense Analyzer & Recommendation Service. Scans OPNSense firewalls via their REST API, stores results in SQLite, and serves a real-time web dashboard with actionable findings, remediation guidance, and AI-powered policy analysis.
 
 ## Features
 
@@ -10,9 +10,13 @@ OPNSense Analyzer & Recommendation Service. Scans OPNSense firewalls via their R
 - **Finding suppression** — silence known/expected findings per firewall per check
 - **Scheduled scanning** — configurable polling interval via APScheduler
 - **Offline detection** — graceful handling of unreachable firewalls with HA-001 alert
+- **Policy analysis** — local LLM (Ollama) explains what traffic is allowed/denied in plain English
+- **What-if queries** — ask "would SSH from 1.2.3.4 be allowed?" and get a reasoned answer with log evidence
 - **REST API** — full JSON API alongside the dashboard
 
 ## Quick Start
+
+### With uv (local)
 
 ```bash
 # Install uv if not already installed
@@ -31,6 +35,17 @@ export FW1_API_SECRET=your_secret
 
 # Run the dashboard
 uv run opnboss serve
+```
+
+### With Docker
+
+```bash
+# Copy and edit config
+cp config/config.yaml.example config/config.yaml
+$EDITOR config/config.yaml
+
+# Run with docker compose
+FW1_API_KEY=your_key FW1_API_SECRET=your_secret docker compose up -d
 ```
 
 Dashboard: http://localhost:8080
@@ -76,11 +91,45 @@ scheduler:
 api:
   host: "0.0.0.0"
   port: 8080
+
+# Optional: local LLM for policy analysis (requires Ollama)
+llm:
+  enabled: true
+  model: "phi3:mini"          # or llama3.2:3b, mistral:7b, qwen2.5:3b
+  base_url: "http://localhost:11434"
+  timeout_seconds: 120.0
 ```
 
 **API credentials**: In OPNSense → System → Access → Users, create a user and generate an API key/secret pair.
 
 Set `enabled: false` on a firewall to silence all alerts without removing it from config.
+
+## Docker Deployment
+
+```bash
+# Build locally
+docker build -t opn-boss .
+
+# Or pull from GitHub Container Registry
+docker pull ghcr.io/jasonthagerty/opn-boss:latest
+
+# Run with compose (recommended)
+docker compose up -d
+
+# View logs
+docker compose logs -f opn_boss
+```
+
+The compose file mounts `./config/config.yaml` read-only and persists the SQLite database in a named volume (`opn_boss_data`).
+
+### With Ollama (policy analysis)
+
+Uncomment the `ollama` service in `docker-compose.yml` and set `llm.base_url: "http://ollama:11434"` in your config:
+
+```bash
+docker compose up -d
+docker compose exec ollama ollama pull phi3:mini
+```
 
 ## CLI Commands
 
@@ -107,6 +156,29 @@ The web dashboard at http://localhost:8080 provides:
 - **Suppression** — click "Suppress" on any finding to silence it; toggle "Show suppressed" to review
 - **Scan on demand** — "Scan Now" button in the nav bar
 - **Live updates** — SSE connection auto-refreshes cards and findings on scan completion
+- **Policy Analysis** — per-firewall tab with LLM-generated policy summary and what-if query form
+
+## Policy Analysis (Local LLM)
+
+OPNBoss can generate a plain-English description of your firewall policy and answer what-if questions using a locally-running LLM via [Ollama](https://ollama.ai). No data leaves your network.
+
+**Setup:**
+```bash
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Pull a model (phi3:mini is fast, ~2GB)
+ollama pull phi3:mini
+
+# Enable in config
+# llm:
+#   enabled: true
+#   model: "phi3:mini"
+```
+
+**Usage:** Navigate to any firewall's detail page → **Policy Analysis** tab → click **Generate Analysis** or type a what-if question.
+
+**Supported models:** Any Ollama-compatible model — `phi3:mini`, `llama3.2:3b`, `mistral:7b`, `qwen2.5:3b`, etc. Smaller models are faster; larger models give more nuanced answers.
 
 ## API
 
@@ -118,6 +190,10 @@ POST /api/scan                             Trigger immediate scan
 GET  /api/suppressions                     List all suppressions (JSON)
 POST /api/suppressions                     Create suppression {firewall_id, check_id, reason?}
 DELETE /api/suppressions/{id}             Remove suppression
+GET  /api/policy/{firewall_id}/summary    Latest policy summary (JSON)
+POST /api/policy/{firewall_id}/analyze    Generate/regenerate policy summary (HTMX)
+POST /api/policy/{firewall_id}/whatif     Submit what-if query (HTMX)
+GET  /api/policy/{firewall_id}/history    Past what-if queries (JSON)
 GET  /api/events                           SSE stream
 ```
 
@@ -186,18 +262,20 @@ GET  /api/events                           SSE stream
 opn_boss/
 ├── opn_boss/
 │   ├── core/
-│   │   ├── config.py           # Pydantic config models, env var expansion
-│   │   ├── database.py         # SQLAlchemy async models (Snapshot, Finding, Suppression)
+│   │   ├── config.py           # Pydantic config models (AppConfig, LLMConfig), env var expansion
+│   │   ├── database.py         # SQLAlchemy async models (Snapshot, Finding, Suppression, PolicySummary, WhatIfQuery)
 │   │   ├── types.py            # Finding, Severity, Category, SnapshotSummary
-│   │   ├── exceptions.py       # ConfigError, CollectorError
+│   │   ├── exceptions.py       # ConfigError, CollectorError, LLMUnavailableError
 │   │   └── logging_config.py   # Structured logging setup
 │   ├── opnsense/
 │   │   └── client.py           # Async httpx client, probe(), OPNSense REST API
-│   ├── collectors/             # 10 collectors (one per data domain)
+│   ├── collectors/             # 12 collectors (one per data domain)
 │   │   ├── base.py             # BaseCollector with collect() contract
 │   │   ├── firmware.py         # Firmware version, update status
 │   │   ├── system.py           # CPU, memory, uptime, disk
 │   │   ├── firewall_rules.py   # Rule count, disabled rules, WAN rules
+│   │   ├── nat_rules.py        # Port forwards (DNAT) and outbound NAT (SNAT)
+│   │   ├── firewall_logs.py    # Recent firewall log entries (for LLM evidence)
 │   │   ├── gateways.py         # Gateway status, latency, loss
 │   │   ├── interfaces.py       # Interface status, IPs, media
 │   │   ├── ids.py              # IDS/IPS service and rule status
@@ -211,6 +289,11 @@ opn_boss/
 │   │   ├── multiwan.py         # MW-001..008
 │   │   ├── ha_recovery.py      # HA-002..009
 │   │   └── performance.py      # PERF-001..010
+│   ├── llm/                    # Local LLM policy analysis
+│   │   ├── client.py           # OllamaClient (async httpx wrapper)
+│   │   ├── formatter.py        # PolicyFormatter (rules/NAT/routes → compact text)
+│   │   ├── prompts.py          # Prompt builders (summary, what-if, log evidence)
+│   │   └── service.py          # PolicyAnalysisService orchestrator
 │   ├── service/
 │   │   └── main.py             # OPNBossService orchestrator, scan loop, DB persistence
 │   ├── scheduler/
@@ -226,6 +309,7 @@ opn_boss/
 │   │   │   ├── snapshots.py    # GET /api/snapshots[/{id}/findings]
 │   │   │   ├── scan.py         # POST /api/scan
 │   │   │   ├── suppressions.py # POST/GET/DELETE /api/suppressions
+│   │   │   ├── policy.py       # GET/POST /api/policy/{id}/*
 │   │   │   └── sse.py          # GET /api/events (SSE stream)
 │   │   ├── static/js/
 │   │   │   └── htmx.min.js     # HTMX 1.9.12 (local, no CDN dependency)
@@ -233,7 +317,7 @@ opn_boss/
 │   │       ├── base.html
 │   │       ├── dashboard.html
 │   │       ├── firewall_detail.html
-│   │       └── partials/       # HTMX partials (findings_table, firewall_cards, suppressed_row)
+│   │       └── partials/       # HTMX partials (findings_table, policy_summary, whatif_card, llm_error, ...)
 │   └── cli/
 │       └── commands.py         # Typer CLI (serve, scan, findings, status)
 ├── config/
@@ -245,16 +329,20 @@ opn_boss/
 │   ├── unit/
 │   │   ├── test_analyzers/     # Per-analyzer unit tests
 │   │   ├── test_collectors/    # Collector contract tests
+│   │   ├── test_llm/           # LLM formatter, prompt, and client tests
 │   │   └── test_core/          # Config, types, database model tests
 │   └── integration/
 │       └── test_api/           # FastAPI TestClient integration tests
+├── Dockerfile
+├── docker-compose.yml
+├── .dockerignore
 └── pyproject.toml
 ```
 
 ## Development
 
 ```bash
-# Run tests
+# Run unit tests only
 uv run pytest tests/unit/
 
 # Run all tests (unit + integration)
@@ -269,6 +357,20 @@ uv run ruff check .
 # Type check
 uv run mypy opn_boss
 ```
+
+## CI/CD
+
+Five GitHub Actions workflows run automatically:
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| **CI** | Push/PR to main/develop | ruff + mypy + pytest + Codecov; auto-creates issue on main failure |
+| **Docker Build** | After CI passes on main, version tags | Builds multi-arch image (amd64/arm64), publishes to GHCR |
+| **Security Scan** | Push/PR + weekly Monday | bandit + safety dependency vulnerability check |
+| **Claude Code** | @claude mention in issues/PRs | Interactive AI coding assistant |
+| **Claude Code Review** | Pull requests opened/updated | Automated AI code review comment |
+
+The Docker image is published to `ghcr.io/jasonthagerty/opn-boss`.
 
 ## License
 
