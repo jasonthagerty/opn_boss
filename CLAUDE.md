@@ -99,6 +99,22 @@ uv run ruff check --fix .     # lint + auto-fix
 uv run mypy opn_boss          # type check
 ```
 
+### Pre-commit / Pre-push Checklist
+
+Before committing (and especially before pushing), all three checks must be clean:
+
+```bash
+uv run ruff check .           # must show "All checks passed!"
+uv run mypy opn_boss          # must show "Success: no issues found"
+uv run pytest tests/ -q       # must show all tests passing
+```
+
+Common pitfalls caught by CI:
+- Bare `dict` or `list` in type annotations — always use `dict[str, Any]`, `list[SomeType]`
+- `(str, Enum)` inheritance — use `StrEnum` instead (ruff UP042)
+- Stale `# type: ignore` comments — remove them when the underlying error is fixed
+- Unsorted imports — run `ruff check --fix .` to auto-correct
+
 ## Architecture
 
 ### Key Types (`opn_boss/core/types.py`)
