@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-6">
+  <h1 class="text-2xl font-bold text-gray-900">Settings</h1>
+  <p class="text-sm text-gray-500 mt-1">Configure firewalls, scheduler, and LLM integration.</p>
+</div>
+
+{% if not key_configured %}
+<div class="mb-6 p-4 bg-yellow-50 border border-yellow-300 rounded-lg text-yellow-800 text-sm">
+  <strong>OPNBOSS_SECRET_KEY is not set.</strong>
+  Firewall credentials are stored encrypted. Run <code class="font-mono bg-yellow-100 px-1 rounded">opnboss gen-key</code>
+  to generate a key, then set <code class="font-mono bg-yellow-100 px-1 rounded">OPNBOSS_SECRET_KEY</code> in your environment before managing firewalls.
+</div>
+{% endif %}
+
+<!-- Tabs -->
+<div x-data="{ tab: 'firewalls' }" x-init="">
+  <div class="border-b border-gray-200 mb-6">
+    <nav class="-mb-px flex gap-6">
+      <button
+        @click="tab = 'firewalls'"
+        :class="tab === 'firewalls' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+        class="border-b-2 py-3 text-sm font-medium transition-colors"
+      >Firewalls</button>
+      <button
+        @click="tab = 'scheduler'"
+        :class="tab === 'scheduler' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+        class="border-b-2 py-3 text-sm font-medium transition-colors"
+      >Scheduler</button>
+      <button
+        @click="tab = 'llm'"
+        :class="tab === 'llm' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+        class="border-b-2 py-3 text-sm font-medium transition-colors"
+      >LLM</button>
+    </nav>
+  </div>
+
+  <!-- Flash message target -->
+  <div id="settings-flash" class="mb-4"></div>
+
+  <!-- Firewalls tab -->
+  <div x-show="tab === 'firewalls'">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-lg font-semibold">Configured Firewalls</h2>
+      <button
+        hx-get="/partials/settings/firewall-form"
+        hx-target="#firewall-form-container"
+        hx-swap="innerHTML"
+        class="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-md"
+      >+ Add Firewall</button>
+    </div>
+
+    <div id="firewall-form-container" class="mb-4"></div>
+
+    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 text-gray-600 text-xs uppercase tracking-wide">
+          <tr>
+            <th class="px-4 py-3 text-left">ID</th>
+            <th class="px-4 py-3 text-left">Host</th>
+            <th class="px-4 py-3 text-left">Role</th>
+            <th class="px-4 py-3 text-left">Status</th>
+            <th class="px-4 py-3 text-left">API Key</th>
+            <th class="px-4 py-3 text-left">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="firewall-config-table" class="divide-y divide-gray-100">
+          {% for fw in fw_configs %}
+          {% include "partials/firewall_config_row.html" %}
+          {% endfor %}
+          {% if not fw_configs %}
+          <tr>
+            <td colspan="6" class="px-4 py-8 text-center text-gray-400 text-sm">
+              No firewalls configured. Add one above.
+            </td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Scheduler tab -->
+  <div x-show="tab === 'scheduler'" style="display:none">
+    <div class="bg-white rounded-lg border border-gray-200 p-6 max-w-md">
+      <h2 class="text-lg font-semibold mb-4">Scan Scheduler</h2>
+      <form
+        hx-put="/api/settings/scheduler"
+        hx-target="#settings-flash"
+        hx-swap="innerHTML"
+      >
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Poll Interval (minutes)
+          </label>
+          <input
+            type="number"
+            name="poll_interval_minutes"
+            value="{{ scheduler_interval }}"
+            min="1"
+            max="1440"
+            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+          />
+          <p class="text-xs text-gray-400 mt-1">How often to scan all firewalls (1-1440 minutes).</p>
+        </div>
+        <button type="submit" class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-md">
+          Save &amp; Reschedule
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- LLM tab -->
+  <div x-show="tab === 'llm'" style="display:none">
+    <div class="bg-white rounded-lg border border-gray-200 p-6 max-w-md">
+      <h2 class="text-lg font-semibold mb-4">LLM Integration (Ollama)</h2>
+      <form
+        hx-put="/api/settings/llm"
+        hx-target="#settings-flash"
+        hx-swap="innerHTML"
+      >
+        <div class="mb-4 flex items-center gap-3">
+          <input
+            type="checkbox"
+            name="enabled"
+            id="llm-enabled"
+            value="true"
+            {% if llm_enabled %}checked{% endif %}
+            class="h-4 w-4 rounded border-gray-300 text-orange-600"
+          />
+          <label for="llm-enabled" class="text-sm font-medium text-gray-700">Enable LLM policy analysis</label>
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
+          <input
+            type="text"
+            name="model"
+            value="{{ llm_model }}"
+            placeholder="phi3:mini"
+            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+          />
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Ollama Base URL</label>
+          <input
+            type="text"
+            name="base_url"
+            value="{{ llm_base_url }}"
+            placeholder="http://localhost:11434"
+            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+          />
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Timeout (seconds)</label>
+          <input
+            type="number"
+            name="timeout_seconds"
+            value="{{ llm_timeout }}"
+            min="10"
+            max="600"
+            step="1"
+            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+          />
+        </div>
+        <button type="submit" class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-md">
+          Save LLM Settings
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Alpine.js for tabs -->
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+{% endblock %}

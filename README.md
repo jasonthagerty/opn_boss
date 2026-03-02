@@ -7,8 +7,10 @@ OPNSense Analyzer & Recommendation Service. Scans OPNSense firewalls via their R
 - **Multi-firewall support** — scan primary and backup firewalls concurrently
 - **37 automated checks** across Security, Multi-WAN, HA/Recovery, and Performance categories
 - **Real-time dashboard** — HTMX-powered, updates live via Server-Sent Events
+- **Dashboard-based configuration** — manage firewalls, scheduler, and LLM settings from the web UI
+- **Encrypted credentials** — API keys/secrets stored with Fernet symmetric encryption in SQLite
 - **Finding suppression** — silence known/expected findings per firewall per check
-- **Scheduled scanning** — configurable polling interval via APScheduler
+- **Scheduled scanning** — configurable polling interval, adjustable live from the dashboard
 - **Offline detection** — graceful handling of unreachable firewalls with HA-001 alert
 - **Policy analysis** — local LLM (Ollama) explains what traffic is allowed/denied in plain English
 - **What-if queries** — ask "would SSH from 1.2.3.4 be allowed?" and get a reasoned answer with log evidence
@@ -25,27 +27,32 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # Clone and enter the project
 cd opn_boss
 
-# Copy and edit config
+# Generate an encryption key for stored credentials
+uv run opnboss gen-key
+export OPNBOSS_SECRET_KEY=<printed-key>
+
+# Copy and edit config (set firewall host/credentials here for first run)
 cp config/config.yaml.example config/config.yaml
 $EDITOR config/config.yaml
 
-# Set API credentials
-export FW1_API_KEY=your_key
-export FW1_API_SECRET=your_secret
-
-# Run the dashboard
+# Run the dashboard — firewalls are bootstrapped from config.yaml into the DB on first start
 uv run opnboss serve
 ```
+
+After the first start, manage firewalls at **Settings → Firewalls** in the dashboard. The YAML entries are only needed for the initial bootstrap.
 
 ### With Docker
 
 ```bash
+# Generate an encryption key
+uv run opnboss gen-key  # or: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+
 # Copy and edit config
 cp config/config.yaml.example config/config.yaml
 $EDITOR config/config.yaml
 
-# Run with docker compose
-FW1_API_KEY=your_key FW1_API_SECRET=your_secret docker compose up -d
+# Run with docker compose (set OPNBOSS_SECRET_KEY in environment or docker-compose.yml)
+OPNBOSS_SECRET_KEY=<key> FW1_API_KEY=your_key FW1_API_SECRET=your_secret docker compose up -d
 ```
 
 Dashboard: http://localhost:8080
@@ -64,9 +71,30 @@ uv pip install -e .
 
 ## Configuration
 
+### Credential Encryption
+
+OPNBoss stores firewall API keys and secrets **encrypted** in SQLite using [Fernet](https://cryptography.io/en/latest/fernet/) symmetric encryption. You must set `OPNBOSS_SECRET_KEY` in your environment before starting the service.
+
+```bash
+# Generate a key (one-time setup)
+uv run opnboss gen-key
+
+# Add to your shell profile or .env file
+export OPNBOSS_SECRET_KEY=<printed-key>
+```
+
+**Keep this key safe.** Loss means encrypted credentials are unrecoverable — you would need to re-enter them via the dashboard.
+
+### config.yaml (bootstrap only)
+
+`config/config.yaml` is used on **first run** to bootstrap firewall entries into the database. After that, manage firewalls from the **Settings** page in the dashboard.
+
 Copy `config/config.yaml.example` to `config/config.yaml`:
 
 ```yaml
+# OPNBOSS_SECRET_KEY: Required for encrypted credential storage.
+# Generate with: opnboss gen-key
+
 firewalls:
   - firewall_id: "firewall1"
     host: "192.168.1.1"           # OPNSense management IP
@@ -102,7 +130,9 @@ llm:
 
 **API credentials**: In OPNSense → System → Access → Users, create a user and generate an API key/secret pair.
 
-Set `enabled: false` on a firewall to silence all alerts without removing it from config.
+Settings that can be changed without editing YAML (scheduler interval, LLM config, firewall CRUD) are saved to the database and take effect immediately.
+
+> **Note**: The dashboard has no authentication. Bind to localhost or place behind a reverse proxy with auth in production.
 
 ## Docker Deployment
 
@@ -134,6 +164,9 @@ docker compose exec ollama ollama pull phi3:mini
 ## CLI Commands
 
 ```bash
+# Generate an encryption key for credential storage
+uv run opnboss gen-key
+
 # Start dashboard + scheduler
 uv run opnboss serve
 
@@ -157,6 +190,7 @@ The web dashboard at http://localhost:8080 provides:
 - **Scan on demand** — "Scan Now" button in the nav bar
 - **Live updates** — SSE connection auto-refreshes cards and findings on scan completion
 - **Policy Analysis** — per-firewall tab with LLM-generated policy summary and what-if query form
+- **Settings** (⚙ nav link) — manage firewalls, scheduler interval, and LLM config without editing YAML
 
 ## Policy Analysis (Local LLM)
 
@@ -183,18 +217,29 @@ ollama pull phi3:mini
 ## API
 
 ```
-GET  /api/firewalls                        Firewall states
-GET  /api/snapshots                        Recent snapshots (filterable by firewall_id)
-GET  /api/snapshots/{id}/findings          Findings for a specific snapshot
-POST /api/scan                             Trigger immediate scan
-GET  /api/suppressions                     List all suppressions (JSON)
-POST /api/suppressions                     Create suppression {firewall_id, check_id, reason?}
-DELETE /api/suppressions/{id}             Remove suppression
-GET  /api/policy/{firewall_id}/summary    Latest policy summary (JSON)
-POST /api/policy/{firewall_id}/analyze    Generate/regenerate policy summary (HTMX)
-POST /api/policy/{firewall_id}/whatif     Submit what-if query (HTMX)
-GET  /api/policy/{firewall_id}/history    Past what-if queries (JSON)
-GET  /api/events                           SSE stream
+GET  /api/firewalls                          Firewall states
+GET  /api/snapshots                          Recent snapshots (filterable by firewall_id)
+GET  /api/snapshots/{id}/findings            Findings for a specific snapshot
+POST /api/scan                               Trigger immediate scan
+GET  /api/suppressions                       List all suppressions (JSON)
+POST /api/suppressions                       Create suppression {firewall_id, check_id, reason?}
+DELETE /api/suppressions/{id}               Remove suppression
+GET  /api/policy/{firewall_id}/summary      Latest policy summary (JSON)
+POST /api/policy/{firewall_id}/analyze      Generate/regenerate policy summary (HTMX)
+POST /api/policy/{firewall_id}/whatif       Submit what-if query (HTMX)
+GET  /api/policy/{firewall_id}/history      Past what-if queries (JSON)
+GET  /api/events                             SSE stream
+
+# Settings (requires OPNBOSS_SECRET_KEY for firewall write operations)
+GET  /api/settings/firewalls                List firewall configs (credentials masked)
+POST /api/settings/firewalls                Create firewall config
+PUT  /api/settings/firewalls/{id}           Update firewall config (blank key/secret = keep existing)
+DELETE /api/settings/firewalls/{id}         Delete firewall config
+POST /api/settings/firewalls/{id}/test      Test connectivity to a firewall
+GET  /api/settings/scheduler                Get scheduler settings
+PUT  /api/settings/scheduler                Update poll interval + reschedule APScheduler job
+GET  /api/settings/llm                      Get LLM settings
+PUT  /api/settings/llm                      Update LLM settings
 ```
 
 ## Check Reference
@@ -263,7 +308,8 @@ opn_boss/
 ├── opn_boss/
 │   ├── core/
 │   │   ├── config.py           # Pydantic config models (AppConfig, LLMConfig), env var expansion
-│   │   ├── database.py         # SQLAlchemy async models (Snapshot, Finding, Suppression, PolicySummary, WhatIfQuery)
+│   │   ├── crypto.py           # Fernet encrypt/decrypt, is_key_configured(), generate_key()
+│   │   ├── database.py         # SQLAlchemy async models (Snapshot, Finding, Suppression, FirewallConfig, AppSettings, ...)
 │   │   ├── types.py            # Finding, Severity, Category, SnapshotSummary
 │   │   ├── exceptions.py       # ConfigError, CollectorError, LLMUnavailableError
 │   │   └── logging_config.py   # Structured logging setup
@@ -304,11 +350,12 @@ opn_boss/
 │   │   ├── models.py           # Pydantic response models
 │   │   ├── sse.py              # SSEManager for broadcast
 │   │   ├── routes/
-│   │   │   ├── dashboard.py    # GET /, /firewall/{id}, /partials/findings
+│   │   │   ├── dashboard.py    # GET /, /firewall/{id}, /settings, /partials/findings
 │   │   │   ├── firewalls.py    # GET /api/firewalls
 │   │   │   ├── snapshots.py    # GET /api/snapshots[/{id}/findings]
 │   │   │   ├── scan.py         # POST /api/scan
 │   │   │   ├── suppressions.py # POST/GET/DELETE /api/suppressions
+│   │   │   ├── settings.py     # CRUD /api/settings/firewalls, scheduler, llm
 │   │   │   ├── policy.py       # GET/POST /api/policy/{id}/*
 │   │   │   └── sse.py          # GET /api/events (SSE stream)
 │   │   ├── static/js/
@@ -317,9 +364,9 @@ opn_boss/
 │   │       ├── base.html
 │   │       ├── dashboard.html
 │   │       ├── firewall_detail.html
-│   │       └── partials/       # HTMX partials (findings_table, policy_summary, whatif_card, llm_error, ...)
+│   │       └── partials/       # HTMX partials (findings_table, firewall_config_row, settings_flash, ...)
 │   └── cli/
-│       └── commands.py         # Typer CLI (serve, scan, findings, status)
+│       └── commands.py         # Typer CLI (serve, scan, findings, status, gen-key)
 ├── config/
 │   ├── config.yaml.example
 │   └── config.yaml             # (gitignored, created by user)
@@ -330,7 +377,7 @@ opn_boss/
 │   │   ├── test_analyzers/     # Per-analyzer unit tests
 │   │   ├── test_collectors/    # Collector contract tests
 │   │   ├── test_llm/           # LLM formatter, prompt, and client tests
-│   │   └── test_core/          # Config, types, database model tests
+│   │   └── test_core/          # Config, types, database model, crypto tests
 │   └── integration/
 │       └── test_api/           # FastAPI TestClient integration tests
 ├── Dockerfile

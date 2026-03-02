@@ -98,6 +98,43 @@ async def firewall_detail(
     )
 
 
+@router.get("/settings", response_class=HTMLResponse)
+async def settings_page(
+    request: Request,
+    service: OPNBossService = Depends(get_service),
+) -> HTMLResponse:
+    """Settings configuration page."""
+    from sqlalchemy import select
+
+    from opn_boss.core.crypto import is_key_configured
+    from opn_boss.core.database import FirewallConfigDB, get_session_factory
+
+    factory = get_session_factory(service._config.database.url)
+    async with factory() as session:
+        result = await session.execute(
+            select(FirewallConfigDB).order_by(FirewallConfigDB.firewall_id)
+        )
+        fw_configs = result.scalars().all()
+
+    scheduler_interval = service._config.scheduler.poll_interval_minutes
+    llm_config = service._config.llm
+
+    return templates.TemplateResponse(
+        "settings.html",
+        {
+            "request": request,
+            "page_title": "OPNBoss \u2014 Settings",
+            "fw_configs": fw_configs,
+            "key_configured": is_key_configured(),
+            "scheduler_interval": scheduler_interval,
+            "llm_enabled": llm_config.enabled,
+            "llm_model": llm_config.model,
+            "llm_base_url": llm_config.base_url,
+            "llm_timeout": llm_config.timeout_seconds,
+        },
+    )
+
+
 @router.get("/partials/findings", response_class=HTMLResponse)
 async def findings_partial(
     request: Request,

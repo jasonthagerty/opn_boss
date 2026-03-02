@@ -101,8 +101,6 @@ class AppConfig(BaseModel):
     @field_validator("firewalls")
     @classmethod
     def validate_firewalls(cls, v: list[FirewallConfig]) -> list[FirewallConfig]:
-        if not v:
-            raise ValueError("At least one firewall must be configured")
         ids = [fw.firewall_id for fw in v]
         if len(ids) != len(set(ids)):
             raise ValueError("Firewall IDs must be unique")

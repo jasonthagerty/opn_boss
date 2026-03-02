@@ -8,6 +8,8 @@ from collections.abc import Callable, Coroutine
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy import select
+
 from opn_boss.analyzers.ha_recovery import HaRecoveryAnalyzer
 from opn_boss.analyzers.multiwan import MultiWANAnalyzer
 from opn_boss.analyzers.performance import PerformanceAnalyzer
@@ -28,6 +30,7 @@ from opn_boss.core.config import AppConfig, FirewallConfig
 from opn_boss.core.database import (
     CollectorRunDB,
     FindingDB,
+    FirewallConfigDB,
     FirewallStateDB,
     SnapshotDB,
     SuppressionDB,
@@ -76,10 +79,36 @@ class OPNBossService:
             except Exception:
                 pass  # never let SSE errors break scan
 
+    async def _load_firewalls_from_db(self) -> list[FirewallConfig]:
+        """Load enabled firewalls from DB (with decryption). Falls back to config if DB is empty."""
+        from opn_boss.core.crypto import is_key_configured
+
+        if not is_key_configured():
+            # No encryption key -> use YAML config as-is
+            return [fw for fw in self._config.firewalls if fw.enabled]
+
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(FirewallConfigDB).where(FirewallConfigDB.enabled == True)  # noqa: E712
+            )
+            db_firewalls = result.scalars().all()
+
+        if not db_firewalls:
+            # DB empty -> fall back to YAML config for backward compat
+            return [fw for fw in self._config.firewalls if fw.enabled]
+
+        firewalls: list[FirewallConfig] = []
+        for fw_db in db_firewalls:
+            try:
+                firewalls.append(fw_db.to_firewall_config())
+            except Exception as exc:
+                logger.error("Failed to decrypt credentials for %s: %s", fw_db.firewall_id, exc)
+        return firewalls
+
     async def run_scan(self) -> list[SnapshotSummary]:
         """Scan all enabled firewalls concurrently."""
         async with self._scan_lock:
-            enabled = [fw for fw in self._config.firewalls if fw.enabled]
+            enabled = await self._load_firewalls_from_db()
             logger.info("Starting scan of %d firewall(s)", len(enabled))
             await self._emit("scan_started", {"firewall_count": len(enabled)})
 

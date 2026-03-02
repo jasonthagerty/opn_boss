@@ -1,0 +1,112 @@
+<div class="bg-white rounded-lg border border-gray-200 p-5 mb-4" id="firewall-form">
+  <div class="flex justify-between items-center mb-4">
+    <h3 class="font-semibold text-gray-900">
+      {% if fw %}Edit {{ fw.firewall_id }}{% else %}Add New Firewall{% endif %}
+    </h3>
+    <button
+      onclick="document.getElementById('firewall-form-container').innerHTML=''"
+      class="text-gray-400 hover:text-gray-600 text-lg leading-none"
+    >&times;</button>
+  </div>
+
+  <form
+    {% if fw %}
+      hx-put="/api/settings/firewalls/{{ fw.firewall_id }}"
+      hx-target="#fw-row-{{ fw.firewall_id }}"
+      hx-swap="outerHTML"
+    {% else %}
+      hx-post="/api/settings/firewalls"
+      hx-target="#firewall-config-table"
+      hx-swap="beforeend"
+    {% endif %}
+    hx-on::after-request="document.getElementById('firewall-form-container').innerHTML=''"
+    class="grid grid-cols-2 gap-4"
+  >
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Firewall ID</label>
+      <input
+        type="text"
+        name="firewall_id"
+        value="{{ fw.firewall_id if fw else '' }}"
+        {% if fw %}readonly class="w-full border border-gray-200 bg-gray-50 rounded-md px-3 py-2 text-sm text-gray-500"
+        {% else %}required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"{% endif %}
+        placeholder="fw1"
+      />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Host / IP</label>
+      <input
+        type="text"
+        name="host"
+        value="{{ fw.host if fw else '' }}"
+        required
+        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+        placeholder="192.168.1.1"
+      />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Port</label>
+      <input
+        type="number"
+        name="port"
+        value="{{ fw.port if fw else 443 }}"
+        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+      />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Role</label>
+      <select name="role" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+        <option value="primary" {% if not fw or fw.role == 'primary' %}selected{% endif %}>Primary</option>
+        <option value="backup" {% if fw and fw.role == 'backup' %}selected{% endif %}>Backup</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">API Key</label>
+      <input
+        type="text"
+        name="api_key"
+        placeholder="{% if fw %}Leave blank to keep current{% else %}API key{% endif %}"
+        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono"
+      />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">API Secret</label>
+      <input
+        type="password"
+        name="api_secret"
+        placeholder="{% if fw %}Leave blank to keep current{% else %}API secret{% endif %}"
+        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono"
+      />
+    </div>
+    <div class="flex items-center gap-4">
+      <label class="flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" name="enabled" value="true" {% if not fw or fw.enabled %}checked{% endif %} class="rounded" />
+        Enabled
+      </label>
+      <label class="flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" name="verify_ssl" value="true" {% if fw and fw.verify_ssl %}checked{% endif %} class="rounded" />
+        Verify SSL
+      </label>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Timeout (s)</label>
+      <input
+        type="number"
+        name="timeout_seconds"
+        value="{{ fw.timeout_seconds if fw else 10.0 }}"
+        step="0.5"
+        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+      />
+    </div>
+    <div class="col-span-2 flex gap-3 pt-2">
+      <button type="submit" class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-md">
+        {% if fw %}Save Changes{% else %}Add Firewall{% endif %}
+      </button>
+      <button
+        type="button"
+        onclick="document.getElementById('firewall-form-container').innerHTML=''"
+        class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-md"
+      >Cancel</button>
+    </div>
+  </form>
+</div>

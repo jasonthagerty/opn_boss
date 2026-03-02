@@ -1,0 +1,13 @@
+<div
+  class="px-4 py-3 rounded-md text-sm {% if success %}bg-green-50 border border-green-200 text-green-800{% else %}bg-red-50 border border-red-200 text-red-800{% endif %}"
+  id="flash-message"
+>
+  {{ message }}
+</div>
+<script>
+  setTimeout(function() {
+    var el = document.getElementById('flash-message');
+    if (el) el.style.opacity = '0';
+    setTimeout(function() { if (el) el.remove(); }, 500);
+  }, 3000);
+</script>

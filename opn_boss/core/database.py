@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     JSON,
@@ -19,6 +19,9 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+
+if TYPE_CHECKING:
+    from opn_boss.core.config import FirewallConfig
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -138,6 +141,51 @@ class WhatIfQueryDB(Base):
     model: Mapped[str] = mapped_column(String(128), nullable=False)
 
 
+class FirewallConfigDB(Base):
+    __tablename__ = "firewall_configs"
+
+    firewall_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    host: Mapped[str] = mapped_column(String(256), nullable=False)
+    port: Mapped[int] = mapped_column(Integer, default=443)
+    role: Mapped[str] = mapped_column(String(16), default="primary")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    verify_ssl: Mapped[bool] = mapped_column(Boolean, default=False)
+    timeout_seconds: Mapped[float] = mapped_column(Float, default=10.0)
+    api_key_enc: Mapped[str] = mapped_column(Text, nullable=False)
+    api_secret_enc: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    def to_firewall_config(self) -> FirewallConfig:
+        """Decrypt credentials and return a FirewallConfig."""
+        from opn_boss.core.config import FirewallConfig
+        from opn_boss.core.crypto import decrypt
+
+        return FirewallConfig(
+            firewall_id=self.firewall_id,
+            host=self.host,
+            port=self.port,
+            role=self.role,
+            enabled=self.enabled,
+            verify_ssl=self.verify_ssl,
+            timeout_seconds=self.timeout_seconds,
+            api_key=decrypt(self.api_key_enc),
+            api_secret=decrypt(self.api_secret_enc),
+        )
+
+
+class AppSettingsDB(Base):
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
 # Engine + session factory (initialized at app startup)
 _engine = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
@@ -182,3 +230,28 @@ async def get_session(db_url: str) -> AsyncGenerator[AsyncSession, None]:
     factory = get_session_factory(db_url)
     async with factory() as session:
         yield session
+
+
+async def get_setting(session: AsyncSession, key: str, default: Any = None) -> Any:
+    """Get a JSON-encoded setting value from app_settings."""
+    import json
+
+    row = await session.get(AppSettingsDB, key)
+    if row is None:
+        return default
+    try:
+        return json.loads(row.value)
+    except Exception:
+        return default
+
+
+async def set_setting(session: AsyncSession, key: str, value: Any) -> None:
+    """Set a JSON-encoded setting value in app_settings."""
+    import json
+
+    row = await session.get(AppSettingsDB, key)
+    if row is None:
+        row = AppSettingsDB(key=key, value=json.dumps(value))
+        session.add(row)
+    else:
+        row.value = json.dumps(value)

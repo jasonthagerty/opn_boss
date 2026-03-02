@@ -47,7 +47,9 @@ def serve(
 
     console.print(f"[bold green]OPNBoss[/bold green] starting on http://{actual_host}:{actual_port}")
     console.print(f"  Config: {config}")
-    console.print(f"  Firewalls: {', '.join(fw.firewall_id for fw in cfg.firewalls)}")
+    console.print(
+        f"  Firewalls: {', '.join(fw.firewall_id for fw in cfg.firewalls) or 'loaded from DB'}"
+    )
 
     fastapi_app = create_app(cfg)
 
@@ -213,6 +215,23 @@ def status(
         console.print(table)
 
     asyncio.run(_run())
+
+
+@app.command(name="gen-key")
+def gen_key() -> None:
+    """Generate a new OPNBOSS_SECRET_KEY for credential encryption."""
+    from opn_boss.core.crypto import generate_key
+
+    key = generate_key()
+    console.print("\n[bold green]Generated new OPNBoss secret key.[/bold green]")
+    console.print("Add to your environment:\n")
+    console.print(f"  [bold cyan]export OPNBOSS_SECRET_KEY={key}[/bold cyan]\n")
+    console.print("Or add to docker-compose.yml environment section:")
+    console.print(f"  [bold cyan]OPNBOSS_SECRET_KEY={key}[/bold cyan]\n")
+    console.print(
+        "[yellow]IMPORTANT:[/yellow] Back this key up. "
+        "Loss means encrypted credentials are unrecoverable."
+    )
 
 
 if __name__ == "__main__":

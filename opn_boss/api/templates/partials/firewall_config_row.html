@@ -1,0 +1,44 @@
+<tr id="fw-row-{{ fw.firewall_id }}" class="hover:bg-gray-50">
+  <td class="px-4 py-3 font-mono text-sm font-medium">{{ fw.firewall_id }}</td>
+  <td class="px-4 py-3 text-sm text-gray-600">{{ fw.host }}:{{ fw.port }}</td>
+  <td class="px-4 py-3">
+    <span class="px-2 py-0.5 text-xs rounded-full {% if fw.role == 'primary' %}bg-blue-100 text-blue-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+      {{ fw.role }}
+    </span>
+  </td>
+  <td class="px-4 py-3">
+    {% if fw.enabled %}
+    <span class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700">enabled</span>
+    {% else %}
+    <span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500">disabled</span>
+    {% endif %}
+  </td>
+  <td class="px-4 py-3 font-mono text-xs text-gray-400">
+    {{ api_key_masked if api_key_masked is defined else "--------" }}
+  </td>
+  <td class="px-4 py-3">
+    <div class="flex gap-2">
+      <button
+        hx-post="/api/settings/firewalls/{{ fw.firewall_id }}/test"
+        hx-target="#test-result-{{ fw.firewall_id }}"
+        hx-swap="innerHTML"
+        class="px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 rounded"
+        title="Test connection"
+      >Test</button>
+      <button
+        hx-get="/partials/settings/firewall-form/{{ fw.firewall_id }}"
+        hx-target="#firewall-form-container"
+        hx-swap="innerHTML"
+        class="px-2 py-1 text-xs bg-gray-50 hover:bg-gray-100 text-gray-700 rounded"
+      >Edit</button>
+      <button
+        hx-delete="/api/settings/firewalls/{{ fw.firewall_id }}"
+        hx-target="#fw-row-{{ fw.firewall_id }}"
+        hx-swap="outerHTML"
+        hx-confirm="Delete firewall {{ fw.firewall_id }}? This cannot be undone."
+        class="px-2 py-1 text-xs bg-red-50 hover:bg-red-100 text-red-700 rounded"
+      >Delete</button>
+    </div>
+    <div id="test-result-{{ fw.firewall_id }}" class="mt-1"></div>
+  </td>
+</tr>
