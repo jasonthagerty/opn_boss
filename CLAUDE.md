@@ -13,16 +13,24 @@ OPNBoss is a standalone Python service that monitors OPNSense firewalls via thei
 - **37 checks** across SEC (security), MW (multi-WAN), HA (high-availability/recovery), PERF (performance)
 - **OPNBossService** orchestrates concurrent scans, persists snapshots and findings, handles offline firewalls
 - **Finding suppression** — per (firewall_id, check_id), applied at persist time; suppressed findings are stored but excluded from counts and hidden by default in the dashboard
-- **FastAPI + HTMX dashboard** with live SSE updates, finding filters, and inline suppress/unsuppress
-- **APScheduler** for periodic scans; immediate scan via `POST /api/scan` or `opnboss scan`
+- **Dashboard-based configuration** — `FirewallConfigDB` stores encrypted credentials; `AppSettingsDB` stores scheduler/LLM settings; both are managed via `/settings` in the UI
+- **Encrypted credentials** — Fernet symmetric encryption (`opn_boss/core/crypto.py`) protects API keys/secrets at rest; requires `OPNBOSS_SECRET_KEY` env var
+- **FastAPI + HTMX dashboard** with live SSE updates, finding filters, inline suppress/unsuppress, and Settings page
+- **APScheduler** for periodic scans; interval adjustable live via dashboard; immediate scan via `POST /api/scan` or `opnboss scan`
 
 ### Architecture: Data Flow
 
 ```
-config.yaml
+config.yaml (bootstrap only)          OPNBOSS_SECRET_KEY (env var)
+    │                                          │
+    ▼                                          ▼
+bootstrap_from_yaml()  ──────────▶  FirewallConfigDB (encrypted)
+    (first run, DB empty)
     │
     ▼
 OPNBossService.run_scan()
+    │  _load_firewalls_from_db()
+    │  (decrypts credentials; falls back to config.yaml if DB empty or no key)
     │  (concurrent per enabled firewall)
     ▼
 OPNSenseClient.probe()  ──offline──▶  _finalize_offline()  ──▶  HA-001 finding
@@ -58,10 +66,14 @@ SSE broadcast → dashboard refresh
 # Install with dev dependencies
 uv pip install -e ".[dev]"
 
+# Generate encryption key (one-time)
+uv run opnboss gen-key
+export OPNBOSS_SECRET_KEY=<printed-key>
+
 # Copy and configure
 cp config/config.yaml.example config/config.yaml
 
-# Set firewall credentials
+# Set firewall credentials for initial bootstrap (only needed first run)
 export FW1_API_KEY=...
 export FW1_API_SECRET=...
 ```
@@ -69,6 +81,7 @@ export FW1_API_SECRET=...
 ### Running
 
 ```bash
+uv run opnboss gen-key        # generate OPNBOSS_SECRET_KEY
 uv run opnboss serve          # dashboard + scheduler on :8080
 uv run opnboss scan           # single immediate scan
 uv run opnboss findings       # print recent findings to terminal
@@ -143,8 +156,12 @@ class Finding:
 | `findings` | Individual check results; `suppressed` bool flag |
 | `collector_runs` | Raw collector output (JSON), duration, success/error |
 | `suppressions` | (firewall_id, check_id) pairs to silence findings; unique constraint |
+| `firewall_configs` | Firewall host/port/role/enabled + `api_key_enc`/`api_secret_enc` (Fernet-encrypted) |
+| `app_settings` | Key/value store for scheduler and LLM settings (JSON-encoded values) |
 
-**Migration**: `create_tables()` runs `ALTER TABLE findings ADD COLUMN suppressed` on startup (silently ignored if column exists — handles existing DBs).
+**Migration**: `create_tables()` runs `ALTER TABLE findings ADD COLUMN suppressed` on startup (silently ignored if column exists — handles existing DBs). `firewall_configs` and `app_settings` are auto-created by `Base.metadata.create_all`.
+
+**Helper functions**: `get_setting(session, key, default)` and `set_setting(session, key, value)` handle JSON encode/decode for `app_settings`.
 
 ### Collector Contract (`opn_boss/collectors/base.py`)
 
@@ -209,10 +226,13 @@ When adding features:
 2. **New check**: add `_<checkid>_<slug>()` method to the appropriate analyzer, call it in `analyze()`, document in README check reference table
 3. **New analyzer domain**: create `opn_boss/analyzers/<domain>.py`, add to `OPNBossService._analyzers` list, add unit tests
 4. **New API route**: create `opn_boss/api/routes/<name>.py`, register in `opn_boss/api/app.py`
-5. **New DB column**: add to model, add `ALTER TABLE ... ADD COLUMN` migration in `create_tables()` with a bare `except: pass`
-6. **Type hints**: required on all function signatures
-7. **Async**: all I/O uses `async`/`await`; analyzers are sync (CPU-only)
-8. **Tests**: unit tests must not make network calls — mock `OPNSenseClient` or pass fixture data directly to analyzers
+5. **New settings route**: add to `opn_boss/api/routes/settings.py`; use `get_setting`/`set_setting` for DB-backed settings
+6. **New DB column**: add to model, add `ALTER TABLE ... ADD COLUMN` migration in `create_tables()` with a bare `except: pass`
+7. **New DB table**: add model to `database.py`; `Base.metadata.create_all` handles creation automatically
+8. **Type hints**: required on all function signatures
+9. **Async**: all I/O uses `async`/`await`; analyzers are sync (CPU-only)
+10. **Tests**: unit tests must not make network calls — mock `OPNSenseClient` or pass fixture data directly to analyzers
+11. **Crypto**: never store credentials in plaintext — use `encrypt()`/`decrypt()` from `opn_boss/core/crypto.py`; check `is_key_configured()` before attempting encrypt/decrypt and return 503 if not set
 
 ## Testing Patterns
 
@@ -258,11 +278,20 @@ def reset_db_globals():
 
 ## Configuration Reference
 
+### Environment Variables
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `OPNBOSS_SECRET_KEY` | Yes (for DB-stored credentials) | Fernet key for encrypting firewall API keys/secrets. Generate with `opnboss gen-key`. |
+| `FW1_API_KEY`, `FW1_API_SECRET` | Bootstrap only | Used in `config.yaml` via `${ENV_VAR}` expansion for the initial import into DB. |
+
+### config.yaml (bootstrap + infrastructure settings)
+
 ```yaml
 firewalls:
   - firewall_id: str          # unique identifier used in DB and UI
     host: str                  # IP or hostname (no scheme, no port)
-    api_key: str               # supports ${ENV_VAR} expansion
+    api_key: str               # supports ${ENV_VAR} expansion; used for DB bootstrap only
     api_secret: str
     role: "primary" | "backup"
     enabled: bool              # false = skip all scans, no alerts
@@ -273,12 +302,14 @@ database:
   url: str                     # SQLAlchemy async URL, e.g. sqlite+aiosqlite:///data/opn_boss.db
 
 scheduler:
-  poll_interval_minutes: int   # default 15
+  poll_interval_minutes: int   # default 15 (overridable via /settings dashboard)
 
 api:
   host: str                    # default "0.0.0.0"
   port: int                    # default 8080
 ```
+
+**Source of truth after first run**: firewall credentials and scheduler/LLM settings live in SQLite (`firewall_configs` and `app_settings` tables). The YAML entries are only re-read on bootstrap (empty `firewall_configs` table + key set). Database URL, API host/port, and logging always come from YAML.
 
 ## Common Workflows
 
@@ -345,7 +376,9 @@ sqlite3 data/opn_boss.db "
 
 ## Security Notes
 
-- `config/config.yaml` contains credentials — it is gitignored
-- OPNSense API keys/secrets grant full admin access; store in env vars or a secrets manager
+- `config/config.yaml` contains credentials for the initial bootstrap — it is gitignored
+- After bootstrap, firewall API keys/secrets are stored Fernet-encrypted in `data/opn_boss.db`
+- `OPNBOSS_SECRET_KEY` is the root secret — loss means encrypted DB credentials are unrecoverable
+- OPNSense API keys/secrets grant full admin access; never log or expose them in plaintext
 - The dashboard has no authentication by default — bind to localhost or put behind a reverse proxy with auth
 - `data/opn_boss.db` contains full scan history including raw firewall data — protect accordingly
