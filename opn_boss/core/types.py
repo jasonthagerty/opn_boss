@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -35,7 +35,7 @@ class Finding:
     firewall_id: str
     evidence: dict[str, Any] = field(default_factory=dict)
     remediation: str | None = None
-    ts: datetime = field(default_factory=datetime.utcnow)
+    ts: datetime = field(default_factory=lambda: datetime.now(UTC))
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def to_dict(self) -> dict[str, Any]:
@@ -63,7 +63,7 @@ class CollectorResult:
     data: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
     duration_ms: float = 0.0
-    ts: datetime = field(default_factory=datetime.utcnow)
+    ts: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass

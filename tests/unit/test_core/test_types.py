@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from opn_boss.core.types import Category, Finding, Severity, SnapshotSummary
 
@@ -47,8 +47,8 @@ def test_snapshot_summary_total():
     s = SnapshotSummary(
         snapshot_id="snap-1",
         firewall_id="fw1",
-        started_at=datetime.utcnow(),
-        completed_at=datetime.utcnow(),
+        started_at=datetime.now(UTC),
+        completed_at=datetime.now(UTC),
         status="completed",
         critical_count=2,
         warning_count=3,

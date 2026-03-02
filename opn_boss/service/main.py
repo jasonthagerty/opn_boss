@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections.abc import Callable, Coroutine
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -128,7 +128,7 @@ class OPNBossService:
     async def _scan_one_firewall(self, fw: FirewallConfig) -> SnapshotSummary:
         """Scan a single firewall, handling offline gracefully."""
         snapshot_id = str(uuid.uuid4())
-        started_at = datetime.utcnow()
+        started_at = datetime.now(UTC)
 
         async with self._session_factory() as session:
             # Persist snapshot as running
@@ -228,7 +228,7 @@ class OPNBossService:
         """Persist findings to DB and return summary."""
         from sqlalchemy import select
 
-        completed_at = datetime.utcnow()
+        completed_at = datetime.now(UTC)
 
         async with self._session_factory() as session:
             # Load suppressed check_ids for this firewall
@@ -308,7 +308,7 @@ class OPNBossService:
             ),
         )
 
-        completed_at = datetime.utcnow()
+        completed_at = datetime.now(UTC)
 
         async with self._session_factory() as session:
             from sqlalchemy import select
@@ -373,9 +373,9 @@ class OPNBossService:
                 session.add(state)
             state.online = online
             state.role = fw.role
-            state.last_checked = datetime.utcnow()
+            state.last_checked = datetime.now(UTC)
             if online:
-                state.last_seen = datetime.utcnow()
+                state.last_seen = datetime.now(UTC)
             await session.commit()
 
     async def get_latest_snapshots(self) -> list[dict[str, Any]]:

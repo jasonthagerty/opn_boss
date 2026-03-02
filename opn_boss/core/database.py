@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncGenerator
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
@@ -43,7 +43,7 @@ class FirewallStateDB(Base):
     role: Mapped[str] = mapped_column(String(16), default="primary")
     last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_checked: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
     )
 
 
@@ -52,7 +52,7 @@ class SnapshotDB(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     firewall_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="running")
     critical_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -84,7 +84,7 @@ class FindingDB(Base):
     evidence: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     remediation: Mapped[str | None] = mapped_column(Text, nullable=True)
     suppressed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    ts: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    ts: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     snapshot: Mapped[SnapshotDB] = relationship("SnapshotDB", back_populates="findings")
 
@@ -102,7 +102,7 @@ class CollectorRunDB(Base):
     data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     duration_ms: Mapped[float] = mapped_column(Float, default=0.0)
-    ts: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    ts: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     snapshot: Mapped[SnapshotDB] = relationship("SnapshotDB", back_populates="collector_runs")
 
@@ -114,7 +114,7 @@ class SuppressionDB(Base):
     firewall_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     check_id: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     __table_args__ = (UniqueConstraint("firewall_id", "check_id"),)
 
 
@@ -124,7 +124,7 @@ class PolicySummaryDB(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     firewall_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     snapshot_id: Mapped[str] = mapped_column(String(36), nullable=False)
-    generated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    generated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     model: Mapped[str] = mapped_column(String(128), nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
 
@@ -134,7 +134,7 @@ class WhatIfQueryDB(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     firewall_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     scenario: Mapped[str] = mapped_column(Text, nullable=False)
     response: Mapped[str] = mapped_column(Text, nullable=False)
     log_evidence: Mapped[list[Any]] = mapped_column(JSON, default=list)
@@ -153,9 +153,9 @@ class FirewallConfigDB(Base):
     timeout_seconds: Mapped[float] = mapped_column(Float, default=10.0)
     api_key_enc: Mapped[str] = mapped_column(Text, nullable=False)
     api_secret_enc: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
     )
 
     def to_firewall_config(self) -> FirewallConfig:
@@ -182,7 +182,7 @@ class AppSettingsDB(Base):
     key: Mapped[str] = mapped_column(String(128), primary_key=True)
     value: Mapped[str] = mapped_column(Text, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
     )
 
 

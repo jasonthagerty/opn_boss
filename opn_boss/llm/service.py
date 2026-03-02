@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import desc, select
@@ -111,7 +111,7 @@ class PolicyAnalysisService:
             id=str(uuid.uuid4()),
             firewall_id=firewall_id,
             snapshot_id=snapshot_id or "",
-            generated_at=datetime.utcnow(),
+            generated_at=datetime.now(UTC),
             model=self._llm_config.model,
             summary=summary_text,
         )
@@ -169,7 +169,7 @@ class PolicyAnalysisService:
         record = WhatIfQueryDB(
             id=str(uuid.uuid4()),
             firewall_id=firewall_id,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
             scenario=scenario,
             response=response_text,
             log_evidence=log_evidence,

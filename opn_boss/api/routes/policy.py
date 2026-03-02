@@ -62,20 +62,23 @@ async def analyze_policy(
     policy_svc = _get_policy_service(service)
     if policy_svc is None:
         return templates.TemplateResponse(
+            request,
             "partials/llm_error.html",
-            {"request": request, "error": "LLM analysis is disabled in config (llm.enabled: false)"},
+            {"error": "LLM analysis is disabled in config (llm.enabled: false)"},
         )
 
     try:
         summary = await policy_svc.generate_summary(firewall_id)
         return templates.TemplateResponse(
+            request,
             "partials/policy_summary.html",
-            {"request": request, "summary": summary, "firewall_id": firewall_id},
+            {"summary": summary, "firewall_id": firewall_id},
         )
     except LLMUnavailableError as exc:
         return templates.TemplateResponse(
+            request,
             "partials/llm_error.html",
-            {"request": request, "error": str(exc)},
+            {"error": str(exc)},
         )
 
 
@@ -89,28 +92,32 @@ async def whatif_query(
     policy_svc = _get_policy_service(service)
     if policy_svc is None:
         return templates.TemplateResponse(
+            request,
             "partials/llm_error.html",
-            {"request": request, "error": "LLM analysis is disabled in config (llm.enabled: false)"},
+            {"error": "LLM analysis is disabled in config (llm.enabled: false)"},
         )
 
     form = await request.form()
     scenario = str(form.get("scenario", "")).strip()
     if not scenario:
         return templates.TemplateResponse(
+            request,
             "partials/llm_error.html",
-            {"request": request, "error": "Please enter a scenario to analyze."},
+            {"error": "Please enter a scenario to analyze."},
         )
 
     try:
         query = await policy_svc.query_whatif(firewall_id, scenario)
         return templates.TemplateResponse(
+            request,
             "partials/whatif_card.html",
-            {"request": request, "query": query},
+            {"query": query},
         )
     except LLMUnavailableError as exc:
         return templates.TemplateResponse(
+            request,
             "partials/llm_error.html",
-            {"request": request, "error": str(exc)},
+            {"error": str(exc)},
         )
 
 

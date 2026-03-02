@@ -42,9 +42,9 @@ async def dashboard(
         })
 
     return templates.TemplateResponse(
+        request,
         "dashboard.html",
         {
-            "request": request,
             "firewalls": fw_data,
             "page_title": "OPNBoss Dashboard",
         },
@@ -85,9 +85,9 @@ async def firewall_detail(
     fw_state = next((s for s in states if s["firewall_id"] == firewall_id), None)
 
     return templates.TemplateResponse(
+        request,
         "firewall_detail.html",
         {
-            "request": request,
             "firewall_id": firewall_id,
             "fw_state": fw_state,
             "snapshots": snaps,
@@ -120,9 +120,9 @@ async def settings_page(
     llm_config = service._config.llm
 
     return templates.TemplateResponse(
+        request,
         "settings.html",
         {
-            "request": request,
             "page_title": "OPNBoss \u2014 Settings",
             "fw_configs": fw_configs,
             "key_configured": is_key_configured(),
@@ -196,9 +196,9 @@ async def findings_partial(
             }
 
     return templates.TemplateResponse(
+        request,
         "partials/findings_table.html",
         {
-            "request": request,
             "findings": findings,
             "show_suppressed": show_suppressed,
             "suppression_map": suppression_map,

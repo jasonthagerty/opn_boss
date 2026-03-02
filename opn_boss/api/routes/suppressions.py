@@ -71,9 +71,9 @@ async def create_suppression(
         finding = f_result.scalar_one_or_none()
 
     return templates.TemplateResponse(
+        request,
         "partials/suppressed_row.html",
         {
-            "request": request,
             "f": finding,
             "suppression_id": supp.id,
             "firewall_id": firewall_id,

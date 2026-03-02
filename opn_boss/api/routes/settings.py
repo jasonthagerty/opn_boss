@@ -99,8 +99,9 @@ async def create_firewall_config(
 
     if not api_key or not api_secret:
         return templates.TemplateResponse(
+            request,
             "partials/settings_flash.html",
-            {"request": request, "success": False, "message": "API key and secret are required."},
+            {"success": False, "message": "API key and secret are required."},
         )
 
     factory = get_session_factory(service._config.database.url)
@@ -108,9 +109,9 @@ async def create_firewall_config(
         existing = await session.get(FirewallConfigDB, firewall_id)
         if existing:
             return templates.TemplateResponse(
+                request,
                 "partials/settings_flash.html",
                 {
-                    "request": request,
                     "success": False,
                     "message": f"Firewall '{firewall_id}' already exists.",
                 },
@@ -135,9 +136,9 @@ async def create_firewall_config(
         raise HTTPException(status_code=500, detail="Failed to create firewall config")
 
     return templates.TemplateResponse(
+        request,
         "partials/firewall_config_row.html",
         {
-            "request": request,
             "fw": fw,
             "api_key_masked": _mask_key(fw.api_key_enc),
             "api_secret_masked": _mask_key(fw.api_secret_enc),
@@ -191,9 +192,9 @@ async def update_firewall_config(
         await session.refresh(fw)
 
         return templates.TemplateResponse(
+            request,
             "partials/firewall_config_row.html",
             {
-                "request": request,
                 "fw": fw,
                 "api_key_masked": _mask_key(fw.api_key_enc),
                 "api_secret_masked": _mask_key(fw.api_secret_enc),
@@ -238,8 +239,9 @@ async def test_firewall_connection(
             fw_config = fw_db.to_firewall_config()
         except Exception as exc:
             return templates.TemplateResponse(
+                request,
                 "partials/connection_test_result.html",
-                {"request": request, "firewall_id": fw_id, "online": False, "error": str(exc)},
+                {"firewall_id": fw_id, "online": False, "error": str(exc)},
             )
 
     from opn_boss.opnsense.client import OPNSenseClient
@@ -247,8 +249,9 @@ async def test_firewall_connection(
     online = await OPNSenseClient(fw_config).probe()
 
     return templates.TemplateResponse(
+        request,
         "partials/connection_test_result.html",
-        {"request": request, "firewall_id": fw_id, "online": online, "error": None},
+        {"firewall_id": fw_id, "online": online, "error": None},
     )
 
 
@@ -283,9 +286,9 @@ async def update_scheduler_settings(
     """Update scheduler interval and reschedule the APScheduler job."""
     if poll_interval_minutes < 1 or poll_interval_minutes > 1440:
         return templates.TemplateResponse(
+            request,
             "partials/settings_flash.html",
             {
-                "request": request,
                 "success": False,
                 "message": "Interval must be between 1 and 1440 minutes.",
             },
@@ -312,9 +315,9 @@ async def update_scheduler_settings(
         logger.warning("Could not reschedule job: %s", exc)
 
     return templates.TemplateResponse(
+        request,
         "partials/settings_flash.html",
         {
-            "request": request,
             "success": True,
             "message": f"Scan interval updated to {poll_interval_minutes} minute(s).",
         },
@@ -372,8 +375,9 @@ async def update_llm_settings(
         await session.commit()
 
     return templates.TemplateResponse(
+        request,
         "partials/settings_flash.html",
-        {"request": request, "success": True, "message": "LLM settings saved."},
+        {"success": True, "message": "LLM settings saved."},
     )
 
 
@@ -386,8 +390,9 @@ async def update_llm_settings(
 async def new_firewall_form(request: Request) -> HTMLResponse:
     """Return empty firewall add form."""
     return templates.TemplateResponse(
+        request,
         "partials/firewall_form.html",
-        {"request": request, "fw": None},
+        {"fw": None},
     )
 
 
@@ -404,6 +409,7 @@ async def edit_firewall_form(
         if fw is None:
             raise HTTPException(status_code=404, detail=f"Firewall '{fw_id}' not found")
     return templates.TemplateResponse(
+        request,
         "partials/firewall_form.html",
-        {"request": request, "fw": fw, "api_key_masked": _mask_key(fw.api_key_enc)},
+        {"fw": fw, "api_key_masked": _mask_key(fw.api_key_enc)},
     )
