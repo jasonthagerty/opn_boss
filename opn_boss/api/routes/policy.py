@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import pathlib
+import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup, escape
 
 from opn_boss.api.dependencies import get_service
 from opn_boss.core.exceptions import LLMUnavailableError
@@ -16,6 +18,21 @@ from opn_boss.service.main import OPNBossService
 
 TEMPLATES_DIR = pathlib.Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+
+def _linkify(text: str) -> Markup:
+    """Escape HTML then convert bare URLs to clickable anchor tags."""
+    escaped = str(escape(text))
+    linked = re.sub(
+        r"(https?://[^\s<>\"']+)",
+        r'<a href="\1" target="_blank" rel="noopener" '
+        r'class="text-blue-600 hover:underline break-all">\1</a>',
+        escaped,
+    )
+    return Markup(linked)
+
+
+templates.env.filters["linkify"] = _linkify
 
 router = APIRouter()
 

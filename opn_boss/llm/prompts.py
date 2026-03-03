@@ -4,18 +4,46 @@ from __future__ import annotations
 
 from typing import Any
 
+_OPNSENSE_DOCS = """\
+OPNSense documentation references (cite relevant URLs in your recommendations):
+- Firewall rules:        https://docs.opnsense.org/manual/firewall.html
+- IDS/IPS (Suricata):   https://docs.opnsense.org/manual/ids.html
+- NAT (port fwd/SNAT):  https://docs.opnsense.org/manual/nat.html
+- High Availability:    https://docs.opnsense.org/manual/hacarp.html
+- Firmware & updates:   https://docs.opnsense.org/manual/updates.html
+- WireGuard VPN:        https://docs.opnsense.org/manual/wireguard-client.html
+- OpenVPN:              https://docs.opnsense.org/manual/vpnet.html
+- DNS resolver:         https://docs.opnsense.org/manual/unbound.html
+- Aliases & GeoIP:      https://docs.opnsense.org/manual/aliases.html
+- Traffic shaping:      https://docs.opnsense.org/manual/shaping.html
+- Two-factor auth:      https://docs.opnsense.org/manual/two_factor.html\
+"""
+
 
 def build_summary_prompt(rules_text: str, nat_text: str, routes_text: str) -> str:
-    return f"""You are a network security analyst. Analyze the following OPNSense firewall configuration and provide a clear, concise summary of the security policy in plain English.
+    return f"""You are a network security analyst reviewing an OPNSense firewall configuration.
 
-Focus on:
+Respond in EXACTLY two sections using these exact headers (do not add extra headers):
+
+## Policy Summary
+
+Write 3-5 paragraphs covering:
 1. What traffic is ALLOWED and from/to where
 2. What traffic is BLOCKED
 3. Key NAT rules and what they expose
 4. Routing and network segmentation
-5. Any notable security patterns or concerns
+5. Any notable security patterns
 
-Be specific and practical. Write 3-5 paragraphs maximum.
+## Recommendations
+
+List specific, actionable improvements directly relevant to this configuration. For each item:
+- State the issue briefly
+- Explain the risk or benefit
+- End the item with the relevant OPNSense documentation URL on its own line
+
+Only include recommendations where there is a clear gap or risk in the rules shown. Skip categories where the configuration is already adequate. If no improvements are needed, write "No significant improvements identified."
+
+{_OPNSENSE_DOCS}
 
 === FILTER RULES ===
 {rules_text}
@@ -25,8 +53,7 @@ Be specific and practical. Write 3-5 paragraphs maximum.
 
 === ROUTING TABLE ===
 {routes_text}
-
-Policy Summary:"""
+"""
 
 
 def build_whatif_prompt(rules_text: str, nat_text: str, routes_text: str, scenario: str) -> str:
