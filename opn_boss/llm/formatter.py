@@ -75,6 +75,8 @@ class PolicyFormatter:
         """Format routing table."""
         lines: list[str] = []
         for route in routes[:100]:
+            if not isinstance(route, dict):
+                continue
             network = route.get("network", route.get("destination", "unknown"))
             gateway = route.get("gateway", "direct")
             iface = route.get("netif", route.get("interface", ""))

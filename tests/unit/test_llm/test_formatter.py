@@ -65,3 +65,15 @@ def test_format_routes(formatter):
 def test_format_routes_empty(formatter):
     result = formatter.format_routes([])
     assert "no routes" in result
+
+
+def test_format_routes_skips_non_dicts(formatter):
+    """OPNSense /api/routes/routes/getroute returns mixed strings and dicts."""
+    routes = [
+        "",
+        {"GATEWAY_WAN": {"value": "WAN - 1.2.3.4", "selected": 0}},
+        {"network": "10.0.0.0/8", "gateway": "direct", "netif": "em0"},
+    ]
+    result = formatter.format_routes(routes)
+    assert "10.0.0.0/8" in result
+    assert "direct" in result
