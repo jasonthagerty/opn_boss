@@ -10,6 +10,7 @@ Run with:
 
 from __future__ import annotations
 
+import httpx
 import pytest
 
 from opn_boss.core.config import LLMConfig
@@ -19,6 +20,24 @@ from opn_boss.llm.service import PolicyAnalysisService
 
 OLLAMA_URL = "http://localhost:11434"
 OLLAMA_MODEL = "llama3.2:3b"
+
+
+def _ollama_available() -> bool:
+    """Return True if Ollama is reachable and the model is pulled."""
+    try:
+        r = httpx.get(f"{OLLAMA_URL}/api/tags", timeout=3)
+        if r.status_code != 200:
+            return False
+        models = [m.get("name", "") for m in r.json().get("models", [])]
+        return any(OLLAMA_MODEL in m for m in models)
+    except Exception:
+        return False
+
+
+ollama_available = pytest.mark.skipif(
+    not _ollama_available(),
+    reason=f"Ollama not running or {OLLAMA_MODEL} not pulled",
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -130,7 +149,7 @@ SAMPLE_COLLECTOR_RESULTS: dict[str, CollectorResult] = {
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@ollama_available
 @pytest.mark.live_llm
 async def test_generate_summary_returns_nonempty_text(
     policy_svc: PolicyAnalysisService,
@@ -148,7 +167,7 @@ async def test_generate_summary_returns_nonempty_text(
     print(f"\n--- POLICY SUMMARY ---\n{result.summary[:800]}\n")
 
 
-@pytest.mark.asyncio
+@ollama_available
 @pytest.mark.live_llm
 async def test_query_whatif_ssh_blocked(
     policy_svc: PolicyAnalysisService,
@@ -167,7 +186,7 @@ async def test_query_whatif_ssh_blocked(
     print(f"\n--- WHATIF RESPONSE ---\n{result.response[:800]}\n")
 
 
-@pytest.mark.asyncio
+@ollama_available
 @pytest.mark.live_llm
 async def test_generate_summary_persisted_to_db(
     policy_svc: PolicyAnalysisService,
@@ -184,7 +203,7 @@ async def test_generate_summary_persisted_to_db(
     assert len(latest.summary) > 10
 
 
-@pytest.mark.asyncio
+@ollama_available
 @pytest.mark.live_llm
 async def test_whatif_query_persisted_to_db(
     policy_svc: PolicyAnalysisService,
