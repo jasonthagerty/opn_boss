@@ -8,7 +8,7 @@ OPNBoss is a standalone Python service that monitors OPNSense firewalls via thei
 
 ### Core Capabilities
 
-- **10 collectors** gather raw data from OPNSense REST endpoints (firmware, system, rules, gateways, interfaces, IDS, CARP, DNS, DHCP, routes)
+- **12 collectors** gather raw data from OPNSense REST endpoints (firmware, system, firewall_rules, nat_rules, firewall_logs, gateways, interfaces, IDS, CARP, DNS, DHCP, routes)
 - **4 analyzers** produce `Finding` objects with severity, remediation text, and evidence dicts
 - **37 checks** across SEC (security), MW (multi-WAN), HA (high-availability/recovery), PERF (performance)
 - **OPNBossService** orchestrates concurrent scans, persists snapshots and findings, handles offline firewalls
@@ -82,7 +82,7 @@ export FW1_API_SECRET=...
 
 ```bash
 uv run opnboss gen-key        # generate OPNBOSS_SECRET_KEY
-uv run opnboss serve          # dashboard + scheduler on :8080
+uv run opnboss serve          # dashboard + scheduler on :8000 (default; set api.port in config.yaml)
 uv run opnboss scan           # single immediate scan
 uv run opnboss findings       # print recent findings to terminal
 uv run opnboss status         # print firewall online/offline status
@@ -96,6 +96,9 @@ uv run pytest tests/unit/ -q
 
 # All tests (unit + integration via TestClient)
 uv run pytest tests/ -q
+
+# Live LLM tests (require Ollama running with llama3.2:3b pulled)
+uv run pytest tests/integration/test_llm_live.py -v -s
 
 # With coverage
 uv run pytest --cov=opn_boss --cov-report=term tests/
@@ -127,6 +130,8 @@ Common pitfalls caught by CI:
 - `(str, Enum)` inheritance — use `StrEnum` instead (ruff UP042)
 - Stale `# type: ignore` comments — remove them when the underlying error is fixed
 - Unsorted imports — run `ruff check --fix .` to auto-correct
+- `datetime.utcnow()` is deprecated in Python 3.14 — always use `datetime.now(UTC)` (import `UTC` from `datetime`)
+- Starlette `TemplateResponse` new signature: `TemplateResponse(request, name, ctx)` — `request` is first positional arg, NOT a key in the context dict
 
 ## Architecture
 

@@ -10,8 +10,6 @@ Run with:
 
 from __future__ import annotations
 
-import textwrap
-
 import pytest
 
 from opn_boss.core.config import LLMConfig

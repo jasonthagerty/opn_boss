@@ -379,7 +379,8 @@ opn_boss/
 │   │   ├── test_llm/           # LLM formatter, prompt, and client tests
 │   │   └── test_core/          # Config, types, database model, crypto tests
 │   └── integration/
-│       └── test_api/           # FastAPI TestClient integration tests
+│       ├── test_api/           # FastAPI TestClient integration tests
+│       └── test_llm_live.py    # Live Ollama integration tests (require Ollama running)
 ├── Dockerfile
 ├── docker-compose.yml
 ├── .dockerignore
@@ -394,6 +395,9 @@ uv run pytest tests/unit/
 
 # Run all tests (unit + integration)
 uv run pytest tests/
+
+# Run live LLM tests (requires Ollama running with llama3.2:3b pulled)
+uv run pytest tests/integration/test_llm_live.py -v -s
 
 # Run with coverage
 uv run pytest --cov=opn_boss --cov-report=term tests/
