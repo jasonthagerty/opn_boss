@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pathlib
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
@@ -210,4 +210,27 @@ async def findings_partial(
             "show_suppressed": show_suppressed,
             "suppression_map": suppression_map,
         },
+    )
+
+
+@router.get("/api/findings/{finding_id}", response_class=HTMLResponse)
+async def finding_detail(
+    request: Request,
+    finding_id: str,
+    service: OPNBossService = Depends(get_service),
+) -> HTMLResponse:
+    """HTMX partial: full finding detail modal."""
+    from opn_boss.core.database import FindingDB, get_session_factory
+
+    factory = get_session_factory(service._config.database.url)
+    async with factory() as session:
+        finding = await session.get(FindingDB, finding_id)
+
+    if finding is None:
+        raise HTTPException(status_code=404, detail="Finding not found")
+
+    return templates.TemplateResponse(
+        request,
+        "partials/finding_detail.html",
+        {"finding": finding},
     )
