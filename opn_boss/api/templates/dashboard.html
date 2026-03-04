@@ -15,7 +15,7 @@
      hx-swap="innerHTML">
   {% for fw in firewalls %}
   {% set snap = fw.snapshot %}
-  <div class="bg-white rounded-lg shadow border border-gray-200 p-4 hover:shadow-md transition-shadow">
+  <div class="bg-white rounded-lg shadow border border-gray-200 p-4 hover:shadow-md transition-shadow" data-firewall-id="{{ fw.firewall_id }}">
     <div class="flex items-start justify-between mb-3">
       <div>
         <a href="/firewall/{{ fw.firewall_id }}" class="text-lg font-semibold text-gray-800 hover:text-orange-600">
@@ -24,12 +24,12 @@
         <span class="ml-2 text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{{ fw.role }}</span>
       </div>
       {% if fw.online %}
-      <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+      <span data-status-badge class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
         <span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
         Online
       </span>
       {% else %}
-      <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+      <span data-status-badge class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
         <span class="w-1.5 h-1.5 rounded-full bg-red-500 inline-block"></span>
         Offline
       </span>
@@ -40,13 +40,13 @@
     <!-- Severity counts -->
     <div class="grid grid-cols-4 gap-2 mb-3">
       <div class="text-center">
-        <div class="text-xl font-bold {% if snap.critical_count > 0 %}text-red-600{% else %}text-gray-400{% endif %}">
+        <div data-count="critical" class="text-xl font-bold {% if snap.critical_count > 0 %}text-red-600{% else %}text-gray-400{% endif %}">
           {{ snap.critical_count }}
         </div>
         <div class="text-xs text-gray-500">Critical</div>
       </div>
       <div class="text-center">
-        <div class="text-xl font-bold {% if snap.warning_count > 0 %}text-yellow-600{% else %}text-gray-400{% endif %}">
+        <div data-count="warning" class="text-xl font-bold {% if snap.warning_count > 0 %}text-yellow-600{% else %}text-gray-400{% endif %}">
           {{ snap.warning_count }}
         </div>
         <div class="text-xs text-gray-500">Warning</div>
@@ -116,7 +116,7 @@
 
   <div id="findings-table"
        hx-get="/partials/findings"
-       hx-trigger="load"
+       hx-trigger="load, refresh from:body"
        hx-swap="innerHTML">
     <div class="p-8 text-center text-gray-400">Loading findings…</div>
   </div>
