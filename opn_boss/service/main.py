@@ -166,6 +166,18 @@ class OPNBossService:
         # Persist findings
         summary = await self._persist_results(snapshot_id, fw, started_at, collector_results, all_findings)
 
+        # Auto-generate policy summary if LLM is enabled
+        if self._policy_service is not None:
+            try:
+                await self._policy_service.generate_summary(
+                    fw.firewall_id,
+                    snapshot_id=snapshot_id,
+                    collector_results=collector_results,
+                )
+                logger.info("Policy summary generated for %s", fw.firewall_id)
+            except Exception as exc:
+                logger.warning("Policy summary generation failed for %s: %s", fw.firewall_id, exc)
+
         await self._emit("scan_firewall_complete", {
             "firewall_id": fw.firewall_id,
             "snapshot_id": snapshot_id,
