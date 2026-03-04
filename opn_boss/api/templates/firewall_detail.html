@@ -148,6 +148,7 @@
       <h3 class="text-sm font-semibold text-gray-700">Policy Summary</h3>
       <div class="flex items-center gap-2">
         <span id="policy-spinner" class="htmx-indicator text-xs text-gray-400">Analyzing...</span>
+        {% if not policy_summary %}
         <button
           hx-post="/api/policy/{{ firewall_id }}/analyze"
           hx-target="#policy-summary-container"
@@ -155,10 +156,16 @@
           hx-indicator="#policy-spinner"
           class="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
         >Generate Analysis</button>
+        {% endif %}
       </div>
     </div>
     <div id="policy-summary-container">
+      {% if policy_summary %}
+        {% set summary = policy_summary %}
+        {% include "partials/policy_summary.html" %}
+      {% else %}
       <p class="text-sm text-gray-400 italic">No analysis yet. Click "Generate Analysis" to create a plain-English summary of the firewall policy using the local LLM.</p>
+      {% endif %}
     </div>
   </div>
 

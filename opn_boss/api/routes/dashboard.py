@@ -9,10 +9,12 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from opn_boss.api.dependencies import get_service
+from opn_boss.api.filters import register_filters
 from opn_boss.service.main import OPNBossService
 
 TEMPLATES_DIR = pathlib.Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+register_filters(templates.env)
 
 router = APIRouter()
 
@@ -84,6 +86,10 @@ async def firewall_detail(
     states = await service.get_firewall_states()
     fw_state = next((s for s in states if s["firewall_id"] == firewall_id), None)
 
+    policy_summary = None
+    if service._policy_service is not None:
+        policy_summary = await service._policy_service.get_latest_summary(firewall_id)
+
     return templates.TemplateResponse(
         request,
         "firewall_detail.html",
@@ -93,6 +99,7 @@ async def firewall_detail(
             "snapshots": snaps,
             "findings": findings,
             "has_llm": service._config.llm.enabled,
+            "policy_summary": policy_summary,
             "page_title": f"OPNBoss \u2014 {firewall_id}",
         },
     )

@@ -193,6 +193,17 @@ class PolicyAnalysisService:
             )
             return result.scalar_one_or_none()
 
+    async def list_summaries(self, firewall_id: str, limit: int = 20) -> list[PolicySummaryDB]:
+        """Return all historical policy summaries for a firewall, newest first."""
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(PolicySummaryDB)
+                .where(PolicySummaryDB.firewall_id == firewall_id)
+                .order_by(desc(PolicySummaryDB.generated_at))
+                .limit(limit)
+            )
+            return list(result.scalars().all())
+
     async def list_whatif_queries(self, firewall_id: str) -> list[WhatIfQueryDB]:
         """Return past what-if queries for a firewall."""
         async with self._session_factory() as session:

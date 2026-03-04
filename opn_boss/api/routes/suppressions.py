@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import desc, select
+from sqlalchemy import desc, select, update
 
 from opn_boss.api.dependencies import get_service
 from opn_boss.core.database import FindingDB, SnapshotDB, SuppressionDB, get_session_factory
@@ -51,8 +51,15 @@ async def create_suppression(
                 reason=str(reason) if reason else None,
             )
             session.add(supp)
-            await session.commit()
-            await session.refresh(supp)
+
+        # Immediately mark all existing findings suppressed so they hide on refresh
+        await session.execute(
+            update(FindingDB)
+            .where(FindingDB.firewall_id == firewall_id, FindingDB.check_id == check_id)
+            .values(suppressed=True)
+        )
+        await session.commit()
+        await session.refresh(supp)
 
         # Query the latest finding for this (firewall_id, check_id) for row rendering
         latest_snap_sub = (
@@ -114,6 +121,14 @@ async def delete_suppression(
         supp = await session.get(SuppressionDB, suppression_id)
         if not supp:
             raise HTTPException(status_code=404, detail="Suppression not found")
+        firewall_id = supp.firewall_id
+        check_id = supp.check_id
         await session.delete(supp)
+        # Un-suppress existing findings so they reappear immediately
+        await session.execute(
+            update(FindingDB)
+            .where(FindingDB.firewall_id == firewall_id, FindingDB.check_id == check_id)
+            .values(suppressed=False)
+        )
         await session.commit()
     return HTMLResponse(content="")

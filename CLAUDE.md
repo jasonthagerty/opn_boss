@@ -115,9 +115,33 @@ uv run ruff check --fix .     # lint + auto-fix
 uv run mypy opn_boss          # type check
 ```
 
+### Git Workflow
+
+All changes go through **feature branches + pull requests**. Never commit directly to `main`.
+
+```bash
+# Start a new branch (use a descriptive prefix)
+git checkout -b feat/my-new-feature       # new feature
+git checkout -b fix/bug-description       # bug fix
+git checkout -b chore/update-deps         # maintenance
+
+# Push branch and open a PR
+git push -u origin feat/my-new-feature
+gh pr create --title "..." --body "..."   # or open in GitHub UI
+```
+
+**Branch naming conventions:**
+| Prefix | Use for |
+|--------|---------|
+| `feat/` | New features |
+| `fix/` | Bug fixes |
+| `chore/` | Deps, tooling, docs, refactors |
+
+PRs require CI to pass (ruff + mypy + pytest) before merging. Merge via **squash merge** to keep `main` history clean.
+
 ### Pre-commit / Pre-push Checklist
 
-Before committing (and especially before pushing), all three checks must be clean:
+Before pushing a branch, all three checks must be clean:
 
 ```bash
 uv run ruff check .           # must show "All checks passed!"

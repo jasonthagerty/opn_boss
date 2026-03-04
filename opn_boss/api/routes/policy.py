@@ -3,36 +3,21 @@
 from __future__ import annotations
 
 import pathlib
-import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from markupsafe import Markup, escape
 
 from opn_boss.api.dependencies import get_service
+from opn_boss.api.filters import register_filters
 from opn_boss.core.exceptions import LLMUnavailableError
 from opn_boss.llm.service import PolicyAnalysisService
 from opn_boss.service.main import OPNBossService
 
 TEMPLATES_DIR = pathlib.Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
-
-
-def _linkify(text: str) -> Markup:
-    """Escape HTML then convert bare URLs to clickable anchor tags."""
-    escaped = str(escape(text))
-    linked = re.sub(
-        r"(https?://[^\s<>\"']+)",
-        r'<a href="\1" target="_blank" rel="noopener" '
-        r'class="text-blue-600 hover:underline break-all">\1</a>',
-        escaped,
-    )
-    return Markup(linked)
-
-
-templates.env.filters["linkify"] = _linkify
+register_filters(templates.env)
 
 router = APIRouter()
 
@@ -136,6 +121,30 @@ async def whatif_query(
             "partials/llm_error.html",
             {"error": str(exc)},
         )
+
+
+@router.get("/api/policy/{firewall_id}/summaries")
+async def policy_summaries(
+    firewall_id: str,
+    service: OPNBossService = Depends(get_service),
+) -> list[dict[str, Any]]:
+    """List all historical policy summaries for a firewall (newest first)."""
+    policy_svc = _get_policy_service(service)
+    if policy_svc is None:
+        return []
+
+    summaries = await policy_svc.list_summaries(firewall_id)
+    return [
+        {
+            "id": s.id,
+            "firewall_id": s.firewall_id,
+            "snapshot_id": s.snapshot_id,
+            "generated_at": s.generated_at.isoformat(),
+            "model": s.model,
+            "summary": s.summary,
+        }
+        for s in summaries
+    ]
 
 
 @router.get("/api/policy/{firewall_id}/history")
