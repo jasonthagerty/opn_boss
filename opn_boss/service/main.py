@@ -44,6 +44,7 @@ from opn_boss.core.types import (
     Severity,
     SnapshotSummary,
 )
+from opn_boss.notifications.dispatcher import NotificationDispatcher
 from opn_boss.opnsense.client import OPNSenseClient
 
 logger = get_logger(__name__)
@@ -67,6 +68,7 @@ class OPNBossService:
         self._broadcast: BroadcastFn | None = None
         self._scan_lock = asyncio.Lock()
         self._policy_service: Any = None  # set by create_app if LLM enabled
+        self._notification_dispatcher = NotificationDispatcher(config.database.url)
 
     def set_broadcast(self, fn: BroadcastFn) -> None:
         """Register SSE broadcast callback."""
@@ -177,6 +179,16 @@ class OPNBossService:
                 logger.info("Policy summary generated for %s", fw.firewall_id)
             except Exception as exc:
                 logger.warning("Policy summary generation failed for %s: %s", fw.firewall_id, exc)
+
+        # Dispatch notifications for new critical findings (errors are non-fatal)
+        try:
+            await self._notification_dispatcher.dispatch(
+                fw.firewall_id, snapshot_id, all_findings
+            )
+        except Exception as exc:
+            logger.warning(
+                "Notification dispatch failed for %s: %s", fw.firewall_id, exc
+            )
 
         await self._emit("scan_firewall_complete", {
             "firewall_id": fw.firewall_id,
