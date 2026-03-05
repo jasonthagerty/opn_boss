@@ -18,44 +18,91 @@ OPNSense Analyzer & Recommendation Service. Scans OPNSense firewalls via their R
 
 ## Quick Start
 
-### With uv (local)
+Get from zero to a live dashboard in about 5 minutes.
+
+### Prerequisites
+
+- **OPNSense API key/secret** — In OPNSense go to System → Access → Users, create or select a user, click **Generate API key**. Save the key and secret.
+- **Python 3.12+** and **[uv](https://docs.astral.sh/uv/getting-started/installation/)** — `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+### 1 — Clone and install
 
 ```bash
-# Install uv if not already installed
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Clone and enter the project
+git clone https://github.com/jasonthagerty/opn_boss.git
 cd opn_boss
+uv pip install -e .
+```
 
-# Generate an encryption key for stored credentials
+### 2 — Generate an encryption key
+
+OPNBoss stores firewall API credentials encrypted in SQLite. Generate a key once and keep it somewhere safe (password manager, secrets vault).
+
+```bash
 uv run opnboss gen-key
+# Prints: export OPNBOSS_SECRET_KEY=<base64-key>
 export OPNBOSS_SECRET_KEY=<printed-key>
+```
 
-# Copy and edit config (set firewall host/credentials here for first run)
+Add `export OPNBOSS_SECRET_KEY=…` to your shell profile so it persists across restarts.
+
+### 3 — Configure your firewall
+
+```bash
 cp config/config.yaml.example config/config.yaml
-$EDITOR config/config.yaml
+```
 
-# Run the dashboard — firewalls are bootstrapped from config.yaml into the DB on first start
+Edit `config/config.yaml` — the minimum you need:
+
+```yaml
+firewalls:
+  - firewall_id: "firewall1"        # any name you like
+    host: "192.168.1.1"             # OPNSense management IP (no scheme/port)
+    api_key: "${FW1_API_KEY}"       # or paste directly: "abc123..."
+    api_secret: "${FW1_API_SECRET}"
+    role: "primary"
+    enabled: true
+
+database:
+  url: "sqlite+aiosqlite:///data/opn_boss.db"
+
+api:
+  host: "0.0.0.0"
+  port: 8080
+```
+
+If using environment variable expansion set them before starting:
+
+```bash
+export FW1_API_KEY=your_api_key_here
+export FW1_API_SECRET=your_api_secret_here
+```
+
+### 4 — Start the dashboard
+
+```bash
 uv run opnboss serve
 ```
 
-After the first start, manage firewalls at **Settings → Firewalls** in the dashboard. The YAML entries are only needed for the initial bootstrap.
+Open **http://localhost:8080** — OPNBoss runs an immediate scan on startup and bootstraps your firewall into the database. After the first run, manage firewalls, scheduler settings, and LLM config entirely from the **Settings** page; the YAML is no longer needed.
 
-### With Docker
+---
+
+### With Docker instead
 
 ```bash
-# Generate an encryption key
-uv run opnboss gen-key  # or: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# 1. Generate key
+docker run --rm ghcr.io/jasonthagerty/opn-boss:latest gen-key
 
-# Copy and edit config
-cp config/config.yaml.example config/config.yaml
-$EDITOR config/config.yaml
+# 2. Configure
+cp .env.example .env          # fill in OPNBOSS_SECRET_KEY + firewall credentials
+cp config/config.yaml.example config/config.yaml   # set host + api_key/secret
 
-# Run with docker compose (set OPNBOSS_SECRET_KEY in environment or docker-compose.yml)
-OPNBOSS_SECRET_KEY=<key> FW1_API_KEY=your_key FW1_API_SECRET=your_secret docker compose up -d
+# 3. Start
+docker compose up -d
+# Dashboard → http://localhost:8080
 ```
 
-Dashboard: http://localhost:8080
+See [Docker Deployment](#docker-deployment) for full details including Ollama integration.
 
 ## Installation
 
