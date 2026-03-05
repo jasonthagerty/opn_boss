@@ -148,3 +148,31 @@ def test_perf010_interface_drops(analyzer: PerformanceAnalyzer):
 def test_empty_results(analyzer: PerformanceAnalyzer):
     findings = analyzer.analyze("fw1", {})
     assert isinstance(findings, list)
+
+
+def test_perf011_load_avg_critical(analyzer: PerformanceAnalyzer):
+    results = {"system": make_result("system", {"loadavg": "11.5, 8.2, 6.1"})}
+    findings = analyzer.analyze("fw1", results)
+    f = next((f for f in findings if f.check_id == "PERF-011"), None)
+    assert f is not None
+    assert f.severity == Severity.CRITICAL
+
+
+def test_perf011_load_avg_warning(analyzer: PerformanceAnalyzer):
+    results = {"system": make_result("system", {"loadavg": "5.2, 4.0, 3.1"})}
+    findings = analyzer.analyze("fw1", results)
+    f = next((f for f in findings if f.check_id == "PERF-011"), None)
+    assert f is not None
+    assert f.severity == Severity.WARNING
+
+
+def test_perf011_load_avg_ok(analyzer: PerformanceAnalyzer):
+    results = {"system": make_result("system", {"loadavg": "0.5, 0.4, 0.3"})}
+    findings = analyzer.analyze("fw1", results)
+    assert not any(f.check_id == "PERF-011" for f in findings)
+
+
+def test_perf011_no_loadavg(analyzer: PerformanceAnalyzer):
+    results = {"system": make_result("system", {"loadavg": ""})}
+    findings = analyzer.analyze("fw1", results)
+    assert not any(f.check_id == "PERF-011" for f in findings)

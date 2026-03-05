@@ -20,6 +20,8 @@ class PerformanceAnalyzer(BaseAnalyzer):
     DISK_WARNING = 80.0
     DHCP_POOL_WARNING = 90.0
     SHORT_UPTIME_HOURS = 1.0
+    LOAD_AVG_WARNING = 4.0
+    LOAD_AVG_CRITICAL = 10.0
 
     def analyze(
         self,
@@ -42,6 +44,7 @@ class PerformanceAnalyzer(BaseAnalyzer):
         findings += self._perf008_disk(firewall_id, system)
         findings += self._perf009_short_uptime(firewall_id, system)
         findings += self._perf010_iface_drops(firewall_id, interfaces)
+        findings += self._perf011_load_average(firewall_id, system)
 
         return findings
 
@@ -382,6 +385,59 @@ class PerformanceAnalyzer(BaseAnalyzer):
                     "Investigate high-traffic interfaces. "
                     "Consider hardware offloading: System → Advanced → Networking. "
                     "Check CPU utilization during peak traffic."
+                ),
+            )]
+        return []
+
+    def _perf011_load_average(self, firewall_id: str, system: dict[str, Any]) -> list[Finding]:
+        """Check system load average (1-minute) from system collector."""
+        if not system:
+            return []
+        loadavg_str = system.get("loadavg", "")
+        if not loadavg_str:
+            return []
+        try:
+            # Format: "0.14, 0.08, 0.02" — take 1-minute average
+            load1 = float(str(loadavg_str).split(",")[0].strip())
+        except (ValueError, IndexError):
+            return []
+
+        if load1 >= self.LOAD_AVG_CRITICAL:
+            return [Finding(
+                check_id="PERF-011",
+                title=f"System load average critical ({load1:.2f})",
+                description=(
+                    f"The 1-minute load average is {load1:.2f}, exceeding the critical "
+                    f"threshold of {self.LOAD_AVG_CRITICAL}. The system is severely overloaded "
+                    "and may drop packets or fail to process connections."
+                ),
+                severity=Severity.CRITICAL,
+                category=Category.PERFORMANCE,
+                firewall_id=firewall_id,
+                evidence={"loadavg": loadavg_str, "load1": load1},
+                remediation=(
+                    "Check running processes under Diagnostics → Activity.\n"
+                    "Common causes: IDS/IPS processing overload, runaway process, "
+                    "or hardware under-provisioning.\n"
+                    "Consider reducing IDS rule set or upgrading hardware."
+                ),
+            )]
+        if load1 >= self.LOAD_AVG_WARNING:
+            return [Finding(
+                check_id="PERF-011",
+                title=f"System load average elevated ({load1:.2f})",
+                description=(
+                    f"The 1-minute load average is {load1:.2f}, exceeding the warning "
+                    f"threshold of {self.LOAD_AVG_WARNING}. Monitor for further increases."
+                ),
+                severity=Severity.WARNING,
+                category=Category.PERFORMANCE,
+                firewall_id=firewall_id,
+                evidence={"loadavg": loadavg_str, "load1": load1},
+                remediation=(
+                    "Monitor with Diagnostics → Activity.\n"
+                    "Identify high-CPU processes and consider tuning IDS rules or "
+                    "scheduling resource-intensive tasks during off-peak hours."
                 ),
             )]
         return []

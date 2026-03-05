@@ -33,6 +33,11 @@ class SecurityAnalyzer(BaseAnalyzer):
         findings += self._sec009_no_default_deny(firewall_id, rules_data)
         findings += self._sec010_many_disabled(firewall_id, rules_data)
 
+        nat_data = self._get_data(collector_results, "nat_rules")
+        findings += self._sec011_pending_reboot(firewall_id, firmware)
+        findings += self._sec012_dangerous_ports_on_wan(firewall_id, rules_data)
+        findings += self._sec013_risky_port_forwards(firewall_id, nat_data)
+
         return findings
 
     def _sec001_firmware_outdated(
@@ -308,6 +313,126 @@ class SecurityAnalyzer(BaseAnalyzer):
             remediation=(
                 "Consider adding a block rule at the bottom of each interface's "
                 "rule set with logging enabled for denied traffic visibility."
+            ),
+        )]
+
+    def _sec011_pending_reboot(self, firewall_id: str, fw: dict[str, Any]) -> list[Finding]:
+        """Warn if firmware was updated but the system hasn't been rebooted yet."""
+        if not fw:
+            return []
+        needs_reboot = fw.get("needs_reboot", "0")
+        # OPNSense returns "1", 1, True, or "true" — normalise
+        if str(needs_reboot).lower() in ("1", "true", "yes"):
+            return [Finding(
+                check_id="SEC-011",
+                title="System reboot required after firmware update",
+                description=(
+                    "A firmware update has been applied but the system has not been rebooted. "
+                    "Security patches and kernel updates are not fully in effect until a reboot."
+                ),
+                severity=Severity.WARNING,
+                category=Category.SECURITY,
+                firewall_id=firewall_id,
+                evidence={"needs_reboot": needs_reboot},
+                remediation=(
+                    "Schedule a maintenance window and reboot the firewall.\n"
+                    "Navigate to Power → Reboot, or run: shutdown -r now from the console."
+                ),
+            )]
+        return []
+
+    def _sec012_dangerous_ports_on_wan(
+        self, firewall_id: str, rules: dict[str, Any]
+    ) -> list[Finding]:
+        """Check for Telnet, RDP, VNC, or SNMP pass rules on WAN."""
+        dangerous: dict[str, tuple[str, Severity]] = {
+            "23":   ("Telnet",   Severity.CRITICAL),
+            "3389": ("RDP",      Severity.CRITICAL),
+            "5900": ("VNC",      Severity.CRITICAL),
+            "5800": ("VNC/HTTP", Severity.CRITICAL),
+            "161":  ("SNMP",     Severity.WARNING),
+            "162":  ("SNMP trap", Severity.WARNING),
+        }
+        rules_list = rules.get("rules", [])
+        matches: list[dict[str, Any]] = []
+        for r in rules_list:
+            if (
+                r.get("interface", "").lower() in ("wan", "opt1")
+                and r.get("type", "").lower() == "pass"
+                and r.get("enabled") == "1"
+                and r.get("destination_port") in dangerous
+            ):
+                port = r["destination_port"]
+                name, sev = dangerous[port]
+                matches.append({"port": port, "protocol": name, "severity": sev.value})
+
+        if not matches:
+            return []
+
+        max_sev = (
+            Severity.CRITICAL
+            if any(m["severity"] == "critical" for m in matches)
+            else Severity.WARNING
+        )
+        port_list = ", ".join(f"{m['protocol']}/{m['port']}" for m in matches)
+        return [Finding(
+            check_id="SEC-012",
+            title=f"Dangerous ports exposed on WAN: {port_list}",
+            description=(
+                f"Firewall rules allow {port_list} traffic from WAN. "
+                "These unencrypted or high-risk protocols should never be directly accessible "
+                "from the internet."
+            ),
+            severity=max_sev,
+            category=Category.SECURITY,
+            firewall_id=firewall_id,
+            evidence={"exposed_ports": matches},
+            remediation=(
+                "Remove or disable all WAN-inbound rules for these ports.\n"
+                "Replace with a VPN-based solution for remote access.\n"
+                "If SNMP monitoring is required, restrict source to a specific management IP."
+            ),
+        )]
+
+    def _sec013_risky_port_forwards(
+        self, firewall_id: str, nat: dict[str, Any]
+    ) -> list[Finding]:
+        """Check for port forwards targeting unencrypted/dangerous internal services."""
+        risky_ports = {"23", "3389", "5900", "5800", "21", "69"}
+        port_forwards = nat.get("port_forwards", [])
+        risky: list[dict[str, Any]] = []
+        for pf in port_forwards:
+            if not isinstance(pf, dict):
+                continue
+            target_port = str(pf.get("target_port", pf.get("local_port", "")))
+            dest_port = str(pf.get("destination_port", pf.get("dport", "")))
+            # Check both destination and target port
+            if (target_port in risky_ports or dest_port in risky_ports) and pf.get("enabled", "1") != "0":
+                risky.append({
+                    "description": pf.get("description", ""),
+                    "target_port": target_port,
+                    "dest_port": dest_port,
+                })
+
+        if not risky:
+            return []
+
+        return [Finding(
+            check_id="SEC-013",
+            title=f"Port forwards to risky internal services ({len(risky)} rule(s))",
+            description=(
+                f"{len(risky)} NAT port forward rule(s) route external traffic to unencrypted "
+                "or high-risk internal services (Telnet/23, RDP/3389, VNC/5900, FTP/21, TFTP/69). "
+                "This exposes internal systems directly to inbound internet traffic."
+            ),
+            severity=Severity.WARNING,
+            category=Category.SECURITY,
+            firewall_id=firewall_id,
+            evidence={"risky_forwards": risky},
+            remediation=(
+                "Replace direct port forwards to unencrypted services with VPN access.\n"
+                "If remote desktop is required, use an encrypted RDP gateway or VPN + RDP.\n"
+                "Review and remove unused or overly broad port forward rules."
             ),
         )]
 
