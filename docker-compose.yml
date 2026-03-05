@@ -12,9 +12,14 @@ services:
       - ./config/config.yaml:/app/config/config.yaml:ro
       - opn_boss_data:/app/data
     environment:
-      # Firewall credentials — set in .env or export before running
-      - FW1_API_KEY=${FW1_API_KEY}
-      - FW1_API_SECRET=${FW1_API_SECRET}
+      # Encryption key for firewall API credentials stored in the database.
+      # Generate with: docker run --rm ghcr.io/jasonthagerty/opn-boss:latest gen-key
+      # Or locally: uv run opnboss gen-key
+      - OPNBOSS_SECRET_KEY=${OPNBOSS_SECRET_KEY}
+      # Firewall credentials — used only on first run to bootstrap the database.
+      # After initial import, credentials are stored encrypted in the DB.
+      - FW1_API_KEY=${FW1_API_KEY:-}
+      - FW1_API_SECRET=${FW1_API_SECRET:-}
       - FW2_API_KEY=${FW2_API_KEY:-}
       - FW2_API_SECRET=${FW2_API_SECRET:-}
     healthcheck:

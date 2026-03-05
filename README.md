@@ -136,21 +136,37 @@ Settings that can be changed without editing YAML (scheduler interval, LLM confi
 
 ## Docker Deployment
 
+### Quick Start
+
 ```bash
-# Build locally
-docker build -t opn-boss .
+# 1. Generate an encryption key (one-time setup)
+docker run --rm ghcr.io/jasonthagerty/opn-boss:latest gen-key
 
-# Or pull from GitHub Container Registry
-docker pull ghcr.io/jasonthagerty/opn-boss:latest
+# 2. Copy and configure the environment file
+cp .env.example .env
+#    Fill in OPNBOSS_SECRET_KEY (from step 1) and firewall credentials
 
-# Run with compose (recommended)
+# 3. Copy and configure the compose config
+cp config/config.yaml.example config/config.yaml
+#    Set firewall host, api_key: ${FW1_API_KEY}, api_secret: ${FW1_API_SECRET}
+
+# 4. Start the service
 docker compose up -d
 
-# View logs
+# 5. View logs
 docker compose logs -f opn_boss
 ```
 
+On first start, firewall credentials from `config.yaml` are automatically imported and encrypted into the database. After that, `FW1_API_KEY`/`FW2_API_KEY` env vars are no longer needed — all credential management happens via the `/settings` dashboard.
+
 The compose file mounts `./config/config.yaml` read-only and persists the SQLite database in a named volume (`opn_boss_data`).
+
+### Build Locally
+
+```bash
+docker build -t opn-boss .
+docker compose up -d
+```
 
 ### With Ollama (policy analysis)
 
