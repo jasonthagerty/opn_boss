@@ -94,7 +94,7 @@ def create_app(config: AppConfig) -> FastAPI:
     app = FastAPI(
         title="OPNBoss",
         description="OPNSense Analyzer & Recommendation Service",
-        version="0.1.0",
+        version="0.2.0",
         lifespan=lifespan,
     )
 
