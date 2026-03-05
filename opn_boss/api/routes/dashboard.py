@@ -142,6 +142,100 @@ async def settings_page(
     )
 
 
+@router.get("/compare", response_class=HTMLResponse)
+async def compare_firewalls(
+    request: Request,
+    fw1: str | None = None,
+    fw2: str | None = None,
+    service: OPNBossService = Depends(get_service),
+) -> HTMLResponse:
+    """Side-by-side comparison of latest findings for two firewalls."""
+    from sqlalchemy import func, select
+
+    from opn_boss.core.database import FindingDB, FirewallStateDB, SnapshotDB, get_session_factory
+
+    factory = get_session_factory(service._config.database.url)
+    async with factory() as session:
+        # All known firewalls for the selector
+        fw_result = await session.execute(select(FirewallStateDB).order_by(FirewallStateDB.firewall_id))
+        all_firewalls = [s.firewall_id for s in fw_result.scalars().all()]
+
+        only_fw1: list[FindingDB] = []
+        only_fw2: list[FindingDB] = []
+        severity_drift: list[tuple[FindingDB, FindingDB]] = []
+        fw1_snap_time = None
+        fw2_snap_time = None
+
+        if fw1 and fw2 and fw1 != fw2:
+            # Latest snapshot id per firewall
+            def latest_snap_id(fw_id: str) -> str | None:
+                return None  # placeholder replaced below
+
+            async def _get_findings(fw_id: str) -> tuple[dict[str, FindingDB], object]:
+                latest = (
+                    select(func.max(SnapshotDB.started_at).label("max_ts"))
+                    .where(SnapshotDB.firewall_id == fw_id)
+                    .scalar_subquery()
+                )
+                snap_res = await session.execute(
+                    select(SnapshotDB)
+                    .where(SnapshotDB.firewall_id == fw_id)
+                    .where(SnapshotDB.started_at == latest)
+                )
+                snap = snap_res.scalar_one_or_none()
+                if snap is None:
+                    return {}, None
+                findings_res = await session.execute(
+                    select(FindingDB)
+                    .where(FindingDB.snapshot_id == snap.id)
+                    .where(FindingDB.suppressed == False)  # noqa: E712
+                )
+                by_check = {f.check_id: f for f in findings_res.scalars().all()}
+                return by_check, snap.completed_at
+
+            findings1, fw1_snap_time = await _get_findings(fw1)
+            findings2, fw2_snap_time = await _get_findings(fw2)
+
+            keys1 = set(findings1)
+            keys2 = set(findings2)
+
+            # Severity ordering for sort
+            _sev_order = {"critical": 0, "warning": 1, "info": 2, "ok": 3}
+
+            only_fw1 = sorted(
+                [findings1[k] for k in keys1 - keys2],
+                key=lambda f: (_sev_order.get(f.severity, 4), f.check_id),
+            )
+            only_fw2 = sorted(
+                [findings2[k] for k in keys2 - keys1],
+                key=lambda f: (_sev_order.get(f.severity, 4), f.check_id),
+            )
+            severity_drift = sorted(
+                [
+                    (findings1[k], findings2[k])
+                    for k in keys1 & keys2
+                    if findings1[k].severity != findings2[k].severity
+                ],
+                key=lambda pair: (_sev_order.get(pair[0].severity, 4), pair[0].check_id),
+            )
+
+    return templates.TemplateResponse(
+        request,
+        "compare.html",
+        {
+            "page_title": f"OPNBoss \u2014 Compare{f' {fw1} vs {fw2}' if fw1 and fw2 else ''}",
+            "all_firewalls": all_firewalls,
+            "fw1": fw1,
+            "fw2": fw2,
+            "only_fw1": only_fw1,
+            "only_fw2": only_fw2,
+            "severity_drift": severity_drift,
+            "fw1_snap_time": fw1_snap_time,
+            "fw2_snap_time": fw2_snap_time,
+        },
+    )
+
+
 @router.get("/partials/findings", response_class=HTMLResponse)
 async def findings_partial(
     request: Request,
