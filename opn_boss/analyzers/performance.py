@@ -22,6 +22,8 @@ class PerformanceAnalyzer(BaseAnalyzer):
     SHORT_UPTIME_HOURS = 1.0
     LOAD_AVG_WARNING = 4.0
     LOAD_AVG_CRITICAL = 10.0
+    LOG_FS_WARNING = 70.0
+    LOG_FS_CRITICAL = 85.0
 
     def analyze(
         self,
@@ -45,6 +47,7 @@ class PerformanceAnalyzer(BaseAnalyzer):
         findings += self._perf009_short_uptime(firewall_id, system)
         findings += self._perf010_iface_drops(firewall_id, interfaces)
         findings += self._perf011_load_average(firewall_id, system)
+        findings += self._perf012_log_filesystem(firewall_id, system)
 
         return findings
 
@@ -440,4 +443,84 @@ class PerformanceAnalyzer(BaseAnalyzer):
                     "scheduling resource-intensive tasks during off-peak hours."
                 ),
             )]
+        return []
+
+    def _perf012_log_filesystem(
+        self, firewall_id: str, system: dict[str, Any]
+    ) -> list[Finding]:
+        """Check disk/log filesystem usage.
+
+        OPNSense uses a fixed-size RAM disk for /var/log by default.  When
+        Suricata (IDS) is enabled its eve.json can fill the ramdisk in hours,
+        causing Unbound, hostwatch, and other log-writing services to crash.
+
+        disk_percent == 0 means the collector could not retrieve disk data —
+        return [] to avoid false alarms.
+        """
+        if not system:
+            return []
+        disk_pct = system.get("disk_percent", 0)
+        disk_used = system.get("disk_used", 0)
+        disk_total = system.get("disk_total", 0)
+        try:
+            pct = float(str(disk_pct).replace("%", "") or 0)
+        except (ValueError, TypeError):
+            return []
+
+        if pct == 0:
+            return []
+
+        if pct >= self.LOG_FS_CRITICAL:
+            return [Finding(
+                check_id="PERF-012",
+                title=f"Log filesystem critically full ({pct:.0f}%)",
+                description=(
+                    f"The log filesystem is {pct:.0f}% full. "
+                    "OPNSense uses a fixed-size RAM disk for /var/log. "
+                    "When full, every service that writes logs (Unbound, IDS/IPS, hostwatch) "
+                    "will crash or fail silently. Immediate action is required."
+                ),
+                severity=Severity.CRITICAL,
+                category=Category.PERFORMANCE,
+                firewall_id=firewall_id,
+                evidence={"disk_percent": pct, "disk_used": disk_used, "disk_total": disk_total},
+                remediation=(
+                    "IMMEDIATE:\n"
+                    "1. Check usage: Diagnostics → Command Prompt → 'df -h /var/log'\n"
+                    "2. Find largest consumers: 'du -sh /var/log/* | sort -rh | head -20'\n"
+                    "\nFIX (requires reboot):\n"
+                    "3. Increase RAM disk size: System → Settings → Miscellaneous → "
+                    "RAM Disk Settings → set to 512 MB or larger.\n"
+                    "\nREDUCE LOG VOLUME:\n"
+                    "4. Tune Suricata: Services → Intrusion Detection → Advanced → "
+                    "set Log Level to 'notice', disable 'Log All Traffic' in eve.json, "
+                    "enable log rotation (1-2 day retention, 2-3 files max).\n"
+                    "5. Reduce Unbound verbosity: Services → Unbound DNS → Advanced → "
+                    "Log Verbosity → 0 (errors only)."
+                ),
+            )]
+
+        if pct >= self.LOG_FS_WARNING:
+            return [Finding(
+                check_id="PERF-012",
+                title=f"Log filesystem filling ({pct:.0f}%)",
+                description=(
+                    f"The log filesystem is {pct:.0f}% full. "
+                    "OPNSense uses a fixed-size RAM disk for /var/log. "
+                    "At current fill rate, service crashes (Unbound, IDS/IPS) are likely "
+                    "within hours unless log verbosity is reduced or the ramdisk is enlarged."
+                ),
+                severity=Severity.WARNING,
+                category=Category.PERFORMANCE,
+                firewall_id=firewall_id,
+                evidence={"disk_percent": pct, "disk_used": disk_used, "disk_total": disk_total},
+                remediation=(
+                    "1. Check usage: Diagnostics → Command Prompt → 'df -h /var/log'\n"
+                    "2. Tune Suricata logging: Services → Intrusion Detection → Advanced → "
+                    "set Log Level to 'notice', enable log rotation.\n"
+                    "3. Consider increasing RAM disk size: System → Settings → Miscellaneous → "
+                    "RAM Disk Settings → 512 MB (requires reboot)."
+                ),
+            )]
+
         return []

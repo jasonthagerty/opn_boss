@@ -176,3 +176,59 @@ def test_perf011_no_loadavg(analyzer: PerformanceAnalyzer):
     results = {"system": make_result("system", {"loadavg": ""})}
     findings = analyzer.analyze("fw1", results)
     assert not any(f.check_id == "PERF-011" for f in findings)
+
+
+# ── PERF-012: Log filesystem usage ───────────────────────────────────────────
+
+def test_perf012_critical(analyzer: PerformanceAnalyzer):
+    results = {"system": make_result("system", {
+        "disk_percent": 90.0,
+        "disk_used": 460_000,
+        "disk_total": 512_000,
+    })}
+    findings = analyzer.analyze("fw1", results)
+    f = next((f for f in findings if f.check_id == "PERF-012"), None)
+    assert f is not None
+    assert f.severity == Severity.CRITICAL
+
+
+def test_perf012_warning(analyzer: PerformanceAnalyzer):
+    results = {"system": make_result("system", {
+        "disk_percent": 75.0,
+        "disk_used": 384_000,
+        "disk_total": 512_000,
+    })}
+    findings = analyzer.analyze("fw1", results)
+    f = next((f for f in findings if f.check_id == "PERF-012"), None)
+    assert f is not None
+    assert f.severity == Severity.WARNING
+
+
+def test_perf012_no_finding_below_threshold(analyzer: PerformanceAnalyzer):
+    results = {"system": make_result("system", {
+        "disk_percent": 50.0,
+        "disk_used": 256_000,
+        "disk_total": 512_000,
+    })}
+    findings = analyzer.analyze("fw1", results)
+    assert not any(f.check_id == "PERF-012" for f in findings)
+
+
+def test_perf012_zero_disk_percent_skipped(analyzer: PerformanceAnalyzer):
+    """disk_percent == 0 means data unavailable — must not false-alarm."""
+    results = {"system": make_result("system", {
+        "disk_percent": 0,
+        "disk_used": 0,
+        "disk_total": 0,
+    })}
+    findings = analyzer.analyze("fw1", results)
+    assert not any(f.check_id == "PERF-012" for f in findings)
+
+
+def test_perf012_remediation_mentions_suricata(analyzer: PerformanceAnalyzer):
+    results = {"system": make_result("system", {"disk_percent": 88.0})}
+    findings = analyzer.analyze("fw1", results)
+    f = next((f for f in findings if f.check_id == "PERF-012"), None)
+    assert f is not None
+    remediation = f.remediation or ""
+    assert "suricata" in remediation.lower() or "intrusion" in remediation.lower()

@@ -25,6 +25,7 @@ from opn_boss.collectors.ids import IDSCollector
 from opn_boss.collectors.interfaces import InterfacesCollector
 from opn_boss.collectors.nat_rules import NatRulesCollector
 from opn_boss.collectors.routes import RoutesCollector
+from opn_boss.collectors.services import ServicesCollector
 from opn_boss.collectors.system import SystemCollector
 from opn_boss.core.config import AppConfig, FirewallConfig
 from opn_boss.core.database import (
@@ -219,6 +220,7 @@ class OPNBossService:
                 RoutesCollector,
                 NatRulesCollector,
                 FirewallLogsCollector,
+                ServicesCollector,
             ]
             tasks = [cls(client).collect() for cls in collector_classes]  # type: ignore[abstract]
             results: list[CollectorResult] = await asyncio.gather(*tasks)
