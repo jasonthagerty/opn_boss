@@ -27,21 +27,45 @@
     document.addEventListener('DOMContentLoaded', function() {
       const evtSource = new EventSource('/api/events');
 
-      evtSource.addEventListener('scan_completed', function(e) {
-        const badge = document.getElementById('scan-status');
-        if (badge) { badge.textContent = 'Scan complete'; badge.className = 'px-2 py-1 text-xs rounded-full bg-green-100 text-green-800'; }
-        // Reload firewall cards partial
-        htmx.trigger('#firewall-cards', 'refresh');
-      });
-
       evtSource.addEventListener('scan_started', function(e) {
         const badge = document.getElementById('scan-status');
         if (badge) { badge.textContent = 'Scanning…'; badge.className = 'px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 animate-pulse'; }
       });
 
+      evtSource.addEventListener('scan_firewall_complete', function(e) {
+        const data = JSON.parse(e.data);
+        const card = document.querySelector('[data-firewall-id="' + data.firewall_id + '"]');
+        if (!card) return;
+        const critEl = card.querySelector('[data-count="critical"]');
+        const warnEl = card.querySelector('[data-count="warning"]');
+        if (critEl) {
+          critEl.textContent = data.critical;
+          critEl.className = 'text-xl font-bold ' + (data.critical > 0 ? 'text-red-600' : 'text-gray-400');
+        }
+        if (warnEl) {
+          warnEl.textContent = data.warning;
+          warnEl.className = 'text-xl font-bold ' + (data.warning > 0 ? 'text-yellow-600' : 'text-gray-400');
+        }
+      });
+
+      evtSource.addEventListener('scan_completed', function(e) {
+        const badge = document.getElementById('scan-status');
+        if (badge) { badge.textContent = 'Scan complete'; badge.className = 'px-2 py-1 text-xs rounded-full bg-green-100 text-green-800'; }
+        const cards = document.getElementById('firewall-cards');
+        if (cards) htmx.trigger(cards, 'refresh');
+        const findings = document.getElementById('findings-table');
+        if (findings) htmx.trigger(findings, 'refresh');
+      });
+
       evtSource.addEventListener('firewall_offline', function(e) {
         const data = JSON.parse(e.data);
-        console.warn('Firewall offline:', data.firewall_id);
+        const card = document.querySelector('[data-firewall-id="' + data.firewall_id + '"]');
+        if (!card) return;
+        const statusBadge = card.querySelector('[data-status-badge]');
+        if (statusBadge) {
+          statusBadge.className = 'inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800';
+          statusBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-red-500 inline-block"></span> Offline';
+        }
       });
     });
   </script>
