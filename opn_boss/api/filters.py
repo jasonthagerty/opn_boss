@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import re
+from typing import Any
 
 from markupsafe import Markup, escape
+
+
+def tojson_pretty(obj: Any) -> str:
+    """Format a value as indented JSON string (HTML-escaped by Jinja2 autoescaping)."""
+    return json.dumps(obj, indent=2, default=str)
 
 
 def linkify(text: str) -> Markup:
@@ -25,3 +32,4 @@ def register_filters(templates_env: object) -> None:
 
     if isinstance(templates_env, Environment):
         templates_env.filters["linkify"] = linkify
+        templates_env.filters["tojson_pretty"] = tojson_pretty

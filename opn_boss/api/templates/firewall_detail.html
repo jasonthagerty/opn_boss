@@ -97,7 +97,10 @@
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for f in findings | sort(attribute='severity') %}
-        <tr class="hover:bg-gray-50">
+        <tr class="hover:bg-gray-50 cursor-pointer"
+            hx-get="/api/findings/{{ f.id }}"
+            hx-target="#modal-container"
+            hx-swap="innerHTML">
           <td class="px-4 py-3">
             {% set sev_classes = {
               'critical': 'bg-red-100 text-red-700',
@@ -117,7 +120,7 @@
           <td class="px-4 py-3 text-xs text-gray-500">{{ f.category }}</td>
           <td class="px-4 py-3 text-xs text-gray-500 max-w-xs">
             {% if f.remediation %}
-            <details>
+            <details onclick="event.stopPropagation()">
               <summary class="cursor-pointer text-orange-600 hover:text-orange-800">View</summary>
               <pre class="mt-1 whitespace-pre-wrap text-xs bg-gray-50 p-2 rounded">{{ f.remediation }}</pre>
             </details>

@@ -15,7 +15,10 @@
     <tbody class="divide-y divide-gray-100">
       {% for f in findings %}
       {% if f.suppressed %}
-      <tr class="bg-gray-50 opacity-60">
+      <tr class="bg-gray-50 opacity-60 cursor-pointer"
+          hx-get="/api/findings/{{ f.id }}"
+          hx-target="#modal-container"
+          hx-swap="innerHTML">
         <td class="px-4 py-3">
           <span class="px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-400">
             {{ f.severity | upper }}
@@ -45,6 +48,7 @@
           <button hx-delete="/api/suppressions/{{ supp_info.id }}"
                   hx-target="closest tr"
                   hx-swap="outerHTML"
+                  onclick="event.stopPropagation()"
                   class="px-2 py-0.5 text-xs rounded bg-gray-200 text-gray-500 hover:bg-red-100 hover:text-red-700">
             Unsuppress
           </button>
@@ -52,7 +56,10 @@
         </td>
       </tr>
       {% else %}
-      <tr class="hover:bg-gray-50 {% if f.severity == 'critical' %}bg-red-50{% endif %}">
+      <tr class="hover:bg-gray-50 cursor-pointer {% if f.severity == 'critical' %}bg-red-50{% endif %}"
+          hx-get="/api/findings/{{ f.id }}"
+          hx-target="#modal-container"
+          hx-swap="innerHTML">
         <td class="px-4 py-3">
           {% set sev_classes = {
             'critical': 'bg-red-100 text-red-700',
@@ -91,6 +98,7 @@
                   hx-vals='{"firewall_id": "{{ f.firewall_id }}", "check_id": "{{ f.check_id }}"}'
                   hx-target="closest tr"
                   hx-swap="outerHTML"
+                  onclick="event.stopPropagation()"
                   class="px-2 py-0.5 text-xs rounded bg-orange-100 text-orange-700 hover:bg-orange-200">
             Suppress
           </button>
