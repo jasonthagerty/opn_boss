@@ -3,7 +3,7 @@
 {% block content %}
 <div class="mb-6">
   <h1 class="text-2xl font-bold text-gray-900">Settings</h1>
-  <p class="text-sm text-gray-500 mt-1">Configure firewalls, scheduler, and LLM integration.</p>
+  <p class="text-sm text-gray-500 mt-1">Configure firewalls, scheduler, LLM integration, and notifications.</p>
 </div>
 
 {% if not key_configured %}
@@ -33,6 +33,11 @@
         :class="tab === 'llm' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
         class="border-b-2 py-3 text-sm font-medium transition-colors"
       >LLM</button>
+      <button
+        @click="tab = 'notifications'"
+        :class="tab === 'notifications' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+        class="border-b-2 py-3 text-sm font-medium transition-colors"
+      >Notifications</button>
     </nav>
   </div>
 
@@ -165,6 +170,68 @@
         </div>
         <button type="submit" class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-md">
           Save LLM Settings
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Notifications tab -->
+  <div x-show="tab === 'notifications'" style="display:none">
+    <div class="bg-white rounded-lg border border-gray-200 p-6 max-w-lg">
+      <h2 class="text-lg font-semibold mb-1">Notification Settings</h2>
+      <p class="text-sm text-gray-500 mb-5">
+        Alerts fire when a scan produces a <strong>new</strong> CRITICAL finding
+        (one that was not critical in the previous snapshot). Leave URLs blank to disable.
+      </p>
+
+      <form
+        hx-put="/api/settings/notifications"
+        hx-target="#settings-flash"
+        hx-swap="innerHTML"
+        class="space-y-6"
+      >
+        <!-- Webhook -->
+        <div class="border border-gray-200 rounded-lg p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-gray-700">Generic Webhook</h3>
+            <button type="button"
+                    hx-post="/api/settings/notifications/test"
+                    hx-vals='js:{"type":"webhook","url":document.getElementById("webhook_url").value}'
+                    hx-target="#settings-flash"
+                    hx-swap="innerHTML"
+                    class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">
+              Send Test
+            </button>
+          </div>
+          <p class="text-xs text-gray-400 mb-2">POST JSON payload with <code>event</code>, <code>firewall_id</code>, and <code>findings</code> array.</p>
+          <input type="url" name="webhook_url" id="webhook_url"
+                 value="{{ webhook_url }}"
+                 placeholder="https://example.com/hooks/opnboss"
+                 class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
+        </div>
+
+        <!-- Slack -->
+        <div class="border border-gray-200 rounded-lg p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-gray-700">Slack Incoming Webhook</h3>
+            <button type="button"
+                    hx-post="/api/settings/notifications/test"
+                    hx-vals='js:{"type":"slack","url":document.getElementById("slack_webhook_url").value}'
+                    hx-target="#settings-flash"
+                    hx-swap="innerHTML"
+                    class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">
+              Send Test
+            </button>
+          </div>
+          <p class="text-xs text-gray-400 mb-2">Create an Incoming Webhook in your Slack app settings and paste the URL here.</p>
+          <input type="url" name="slack_webhook_url" id="slack_webhook_url"
+                 value="{{ slack_webhook_url }}"
+                 placeholder="https://hooks.slack.com/services/..."
+                 class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
+        </div>
+
+        <button type="submit" class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-md">
+          Save Notification Settings
         </button>
       </form>
     </div>

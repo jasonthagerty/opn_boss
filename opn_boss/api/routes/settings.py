@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 
 from opn_boss.api.dependencies import get_service
-from opn_boss.core.database import FirewallConfigDB, get_session_factory
+from opn_boss.core.database import FirewallConfigDB, get_session_factory, get_setting, set_setting
 from opn_boss.core.logging_config import get_logger
 from opn_boss.service.main import OPNBossService
 
@@ -267,8 +267,6 @@ async def get_scheduler_settings(
     """Get current scheduler settings."""
     factory = get_session_factory(service._config.database.url)
     async with factory() as session:
-        from opn_boss.core.database import get_setting
-
         interval = await get_setting(
             session,
             "scheduler.poll_interval_minutes",
@@ -296,8 +294,6 @@ async def update_scheduler_settings(
 
     factory = get_session_factory(service._config.database.url)
     async with factory() as session:
-        from opn_boss.core.database import set_setting
-
         await set_setting(session, "scheduler.poll_interval_minutes", poll_interval_minutes)
         await session.commit()
 
@@ -336,8 +332,6 @@ async def get_llm_settings(
     """Get current LLM settings."""
     factory = get_session_factory(service._config.database.url)
     async with factory() as session:
-        from opn_boss.core.database import get_setting
-
         llm_enabled = await get_setting(session, "llm.enabled", service._config.llm.enabled)
         model = await get_setting(session, "llm.model", service._config.llm.model)
         llm_base_url = await get_setting(session, "llm.base_url", service._config.llm.base_url)
@@ -366,8 +360,6 @@ async def update_llm_settings(
 
     factory = get_session_factory(service._config.database.url)
     async with factory() as session:
-        from opn_boss.core.database import set_setting
-
         await set_setting(session, "llm.enabled", bool_enabled)
         await set_setting(session, "llm.model", model)
         await set_setting(session, "llm.base_url", base_url)
@@ -379,6 +371,90 @@ async def update_llm_settings(
         "partials/settings_flash.html",
         {"success": True, "message": "LLM settings saved."},
     )
+
+
+# ---------------------------------------------------------------------------
+# Notification settings
+# ---------------------------------------------------------------------------
+
+
+@router.get("/notifications")
+async def get_notification_settings(
+    service: OPNBossService = Depends(get_service),
+) -> dict[str, Any]:
+    """Get current notification settings."""
+    factory = get_session_factory(service._config.database.url)
+    async with factory() as session:
+        webhook_url = await get_setting(session, "notifications.webhook_url", "")
+        slack_url = await get_setting(
+            session, "notifications.slack_webhook_url", ""
+        )
+    return {"webhook_url": webhook_url, "slack_webhook_url": slack_url}
+
+
+@router.put("/notifications", response_class=HTMLResponse)
+async def save_notification_settings(
+    request: Request,
+    webhook_url: Annotated[str, Form()] = "",
+    slack_webhook_url: Annotated[str, Form()] = "",
+    service: OPNBossService = Depends(get_service),
+) -> HTMLResponse:
+    """Save notification webhook URLs."""
+    factory = get_session_factory(service._config.database.url)
+    async with factory() as session:
+        await set_setting(
+            session, "notifications.webhook_url", webhook_url.strip()
+        )
+        await set_setting(
+            session, "notifications.slack_webhook_url", slack_webhook_url.strip()
+        )
+        await session.commit()
+
+    return templates.TemplateResponse(
+        request,
+        "partials/settings_flash.html",
+        {"success": True, "message": "Notification settings saved."},
+    )
+
+
+@router.post("/notifications/test", response_class=HTMLResponse)
+async def test_notification(
+    request: Request,
+    type: Annotated[str, Form()] = "webhook",
+    url: Annotated[str, Form()] = "",
+    service: OPNBossService = Depends(get_service),
+) -> HTMLResponse:
+    """Send a test notification to verify webhook or Slack URL."""
+    notif_type = type.strip()
+    notif_url = url.strip()
+
+    if not notif_url:
+        return templates.TemplateResponse(
+            request,
+            "partials/settings_flash.html",
+            {"success": False, "message": "URL is required."},
+        )
+
+    try:
+        dispatcher = service._notification_dispatcher
+        if notif_type == "slack":
+            await dispatcher.test_slack(notif_url)
+        else:
+            await dispatcher.test_webhook(notif_url)
+        return templates.TemplateResponse(
+            request,
+            "partials/settings_flash.html",
+            {
+                "success": True,
+                "message": f"Test {notif_type} notification sent successfully.",
+            },
+        )
+    except Exception as exc:
+        return templates.TemplateResponse(
+            request,
+            "partials/settings_flash.html",
+            {"success": False, "message": f"Test failed: {exc}"},
+        )
 
 
 # ---------------------------------------------------------------------------

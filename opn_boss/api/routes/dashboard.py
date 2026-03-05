@@ -114,7 +114,7 @@ async def settings_page(
     from sqlalchemy import select
 
     from opn_boss.core.crypto import is_key_configured
-    from opn_boss.core.database import FirewallConfigDB, get_session_factory
+    from opn_boss.core.database import FirewallConfigDB, get_session_factory, get_setting
 
     factory = get_session_factory(service._config.database.url)
     async with factory() as session:
@@ -122,6 +122,13 @@ async def settings_page(
             select(FirewallConfigDB).order_by(FirewallConfigDB.firewall_id)
         )
         fw_configs = result.scalars().all()
+
+    # Load notification settings from DB
+    async with factory() as session:
+        webhook_url = await get_setting(session, "notifications.webhook_url", "")
+        slack_webhook_url = await get_setting(
+            session, "notifications.slack_webhook_url", ""
+        )
 
     scheduler_interval = service._config.scheduler.poll_interval_minutes
     llm_config = service._config.llm
@@ -138,6 +145,8 @@ async def settings_page(
             "llm_model": llm_config.model,
             "llm_base_url": llm_config.base_url,
             "llm_timeout": llm_config.timeout_seconds,
+            "webhook_url": webhook_url,
+            "slack_webhook_url": slack_webhook_url,
         },
     )
 
