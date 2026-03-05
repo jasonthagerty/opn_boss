@@ -27,8 +27,12 @@
         <td class="px-4 py-3 font-mono text-xs text-gray-400">{{ f.check_id }}</td>
         <td class="px-4 py-3 text-gray-400">
           <div class="font-medium">{{ f.title }}</div>
-          <div class="text-xs mt-0.5">
+          <div class="text-xs mt-0.5 space-x-1">
             <span class="px-1.5 py-0.5 rounded bg-gray-200 text-gray-400 text-xs">Suppressed</span>
+            {% set supp_info = suppression_map.get(f.firewall_id + ':' + f.check_id) %}
+            {% if supp_info and supp_info.reason %}
+            <span class="italic text-gray-400" title="{{ supp_info.reason }}">— {{ supp_info.reason | truncate(60) }}</span>
+            {% endif %}
           </div>
         </td>
         <td class="px-4 py-3 text-xs text-gray-400">
@@ -36,9 +40,9 @@
         </td>
         <td class="px-4 py-3 text-xs text-gray-400"></td>
         <td class="px-4 py-3 text-xs">
-          {% set supp_id = suppression_map.get(f.firewall_id + ':' + f.check_id) %}
-          {% if supp_id %}
-          <button hx-delete="/api/suppressions/{{ supp_id }}"
+          {% set supp_info = suppression_map.get(f.firewall_id + ':' + f.check_id) %}
+          {% if supp_info %}
+          <button hx-delete="/api/suppressions/{{ supp_info.id }}"
                   hx-target="closest tr"
                   hx-swap="outerHTML"
                   class="px-2 py-0.5 text-xs rounded bg-gray-200 text-gray-500 hover:bg-red-100 hover:text-red-700">

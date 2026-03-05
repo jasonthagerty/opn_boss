@@ -194,11 +194,11 @@ async def findings_partial(
         findings = result2.scalars().all()
 
         # Build suppression map for Unsuppress buttons (only needed when showing suppressed)
-        suppression_map: dict[str, str] = {}
+        suppression_map: dict[str, dict[str, str | None]] = {}
         if show_suppressed:
             supp_result = await session.execute(select(SuppressionDB))
             suppression_map = {
-                f"{s.firewall_id}:{s.check_id}": s.id
+                f"{s.firewall_id}:{s.check_id}": {"id": s.id, "reason": s.reason}
                 for s in supp_result.scalars().all()
             }
 
